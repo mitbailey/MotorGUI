@@ -160,6 +160,7 @@ public:
         pthread_attr_t attr;
         int rc = pthread_attr_init(&attr);
         rc = pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+        printf("Creating acquisition thread on %p\n", this);
         rc = pthread_create(&thr, NULL, &Acquisition, (void *)this);
         if (rc != 0)
         {
@@ -179,6 +180,7 @@ public:
 
     static void *Acquisition(void *_in)
     {
+        printf("Acquisition thread on object %p\n", _in);
         SerEncoder *in = (SerEncoder *) _in;
         char buf[50];
         memset(buf, 0x0, sizeof(buf));
@@ -205,6 +207,12 @@ public:
         // 3. Wait a sec
         usleep(100000); // 10 ms
         // 4. Start readin'
+        msg = "$0A00010\r\n";
+        wr = 0;
+        for (int i = 10; (i > 0) && (wr <= 0); i--)
+        {
+            wr = write(in->fd, msg, strlen(msg));
+        }
         while (!in->stop)
         {
             // 1. Detect '*0R0'

@@ -140,7 +140,7 @@ public:
         // 1. Get serial number
         char buf[50];
         memset(buf, 0x0, sizeof(buf));
-        char *msg = "$0\r\n";
+        char *msg = "$0V\r\n";
         ssize_t wr = write(fd, msg, strlen(msg));
         if (wr != (ssize_t) strlen(msg))
         {

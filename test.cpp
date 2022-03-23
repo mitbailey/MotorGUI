@@ -7,6 +7,15 @@ int main()
 {
     ScrollBuf dbuf(2000);
     SerEncoder enc("/dev/ttyUSB0", &dbuf);
+    int count = 100;
+    while (dbuf.data.empty() && count--)
+    {
+        printf("Waiting for data buffer to fill... %d s remaining\r", count);
+        fflush(stdout);
+        sleep(1);
+        printf("                                                          \r");
+    }
+    printf("\n");
     for (int i = 0; i < 4000; i++)
     {
         uint64_t ts = dbuf.tstamp[dbuf.ofst];

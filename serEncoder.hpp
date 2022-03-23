@@ -81,9 +81,9 @@ public:
 
     int max_sz;
     int ofst;
-    ImVector<uint64_t> tstamp;
+    ImVector<float> tstamp;
     ImVector<uint8_t> flags;
-    ImVector<int> data;
+    ImVector<float> data;
 };
 
 static inline uint64_t get_ts()
@@ -299,13 +299,13 @@ public:
             flag <<= 1;                  // move by 1 bit to make room for VA decoder status bit
             flag |= d1 & 0x1;            // VA Decoder status bit
             val = (d1 & 0x3fffffe) >> 1; // select [1..25]
-            in->dbuf->AddPoint(ts, flag, val);
+            in->dbuf->AddPoint(ts * 001, flag, val);
             if (in->fp != NULL)
                 fprintf(in->fp, "%" PRIu64 ",%u,%d,%d\n", ts, flag, val, d1);
         }
         return NULL;
     }
-    
+
 private:
     ScrollBuf *dbuf;
     int fd;

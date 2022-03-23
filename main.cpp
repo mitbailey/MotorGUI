@@ -49,6 +49,16 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 int main(int, char **)
 #endif
 {
+    ScrollBuf dbuf(2000);
+    SerEncoder enc("/dev/ttyUSB0", &dbuf, true);
+    int count = 100;
+    while (dbuf.data.empty() && count--)
+    {
+        printf("Waiting for data buffer to fill... %d s remaining\r", count);
+        fflush(stdout);
+        sleep(1);
+        printf("                                                          \r");
+    }
     // Setup window
     glfwSetErrorCallback(glfw_error_callback);
     if (!glfwInit())
@@ -62,6 +72,7 @@ int main(int, char **)
     // Setup Dear ImGui context
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
+    ImPlot::CreateContext();
     ImGuiIO &io = ImGui::GetIO();
     (void)io;
     // io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
@@ -111,39 +122,26 @@ int main(int, char **)
         ImGui::NewFrame();
 
         // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
-        if (show_demo_window)
-            ImGui::ShowDemoWindow(&show_demo_window);
-
-        // 2. Show a simple window that we create ourselves. We use a Begin/End pair to created a named window.
+        if (dbuf.data.empty())
         {
-            static float f = 0.0f;
-            static int counter = 0;
-
-            ImGui::Begin("Hello, world!"); // Create a window called "Hello, world!" and append into it.
-
-            ImGui::Text("This is some useful text.");          // Display some text (you can use a format strings too)
-            ImGui::Checkbox("Demo Window", &show_demo_window); // Edit bools storing our window open/close state
-            ImGui::Checkbox("Another Window", &show_another_window);
-
-            ImGui::SliderFloat("float", &f, 0.0f, 1.0f);             // Edit 1 float using a slider from 0.0f to 1.0f
-            ImGui::ColorEdit3("clear color", (float *)&clear_color); // Edit 3 floats representing a color
-
-            if (ImGui::Button("Button")) // Buttons return true when clicked (most widgets return true when edited/activated)
-                counter++;
-            ImGui::SameLine();
-            ImGui::Text("counter = %d", counter);
-
-            ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+            ImGui::Begin("Encoder Data");
+            ImGui::Text("Data not available");
             ImGui::End();
         }
-
-        // 3. Show another simple window.
-        if (show_another_window)
+        else
         {
-            ImGui::Begin("Another Window", &show_another_window); // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
-            ImGui::Text("Hello from another window!");
-            if (ImGui::Button("Close Me"))
-                show_another_window = false;
+            static int ofst, hist = 100;
+            ImGui::Begin("Encoder Data");
+            ImGui::Text("Flag: %u", dbuf.flags[ofst]);
+            ofst = dbuf.ofst;
+            ImPlot::SetNextPlotLimitsX(0.001 * dbuf.tstamp[ofst - hist], 0.001 * dbuf.tstamp[ofst], ImGuiCond_Always);
+            ImPlot::SetNextPlotLimitsY(dbuf.data[ofst - hist], dbuf.data[ofst], ImGuiCond_Always);
+            ImGui::SliderInt("Points", &hist, 10, 1000, "%d");
+            if (ImPlot::BeginPlot("Encoder Data", "Time", "Position", ImVec2(-1, 300)))
+            {
+                ImPlot::PlotLine("##Line", &dbuf.tstamp.Data[0], &dbuf.data.Data[0], dbuf.data.size(), ofst, sizeof(float));
+                ImPlot::EndPlot();
+            }
             ImGui::End();
         }
 
@@ -170,6 +168,7 @@ int main(int, char **)
     // Cleanup
     ImGui_ImplOpenGL2_Shutdown();
     ImGui_ImplGlfw_Shutdown();
+    ImPlot::DestroyContext();
     ImGui::DestroyContext();
 
     glfwDestroyWindow(window);

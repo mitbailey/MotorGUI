@@ -173,6 +173,8 @@ public:
 
     ~SerEncoder()
     {
+        printf(__func__);
+        fflush(stdout);
         stop = true;
         sleep(1);
         pthread_cancel(thr);

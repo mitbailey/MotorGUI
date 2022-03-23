@@ -16,7 +16,7 @@ int main()
         printf("                                                          \r");
     }
     printf("\n");
-    for (int i = 0; i < 4000; i++)
+    while (dbuf.ofst < dbuf.max_sz)
     {
         uint64_t ts = dbuf.tstamp[dbuf.ofst];
         uint8_t flag = dbuf.flags[dbuf.ofst];

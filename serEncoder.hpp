@@ -160,7 +160,6 @@ public:
         pthread_attr_t attr;
         int rc = pthread_attr_init(&attr);
         rc = pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-        printf("Creating acquisition thread on %p\n", this);
         stop = false;
         rc = pthread_create(&thr, NULL, &Acquisition, (void *)this);
         if (rc != 0)
@@ -181,7 +180,6 @@ public:
 
     static void *Acquisition(void *_in)
     {
-        printf("Acquisition thread on object %p\n", _in);
         SerEncoder *in = (SerEncoder *) _in;
         char buf[50];
         memset(buf, 0x0, sizeof(buf));
@@ -229,8 +227,6 @@ public:
                     throw std::runtime_error("Could not read from serial on line " + std::to_string(__LINE__));
                 }
             }
-            printf("Init HDR: %s\n", hdr);
-            fflush(stdout);
             // afterward...
             while (strncasecmp(hdr, "*0R0", 4) != 0)
             {
@@ -249,8 +245,6 @@ public:
                 hdr[2] = hdr[3];
                 hdr[3] = hdr[4];
                 hdr[4] = c;
-                printf("In loop: %s\n", hdr);
-                fflush(stdout);
             }
             // pattern matched at this point
             // read up to , for port 1; read after , to \r for port 2

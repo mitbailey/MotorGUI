@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <pthread.h>
+#include <inttypes.h>
 
 #include <string>
 #include <stdexcept>
@@ -92,7 +93,7 @@ static inline uint64_t get_ts()
 class SerEncoder
 {
 public:
-    SerEncoder(const char *name, ScrollBuf *dbuf)
+    SerEncoder(const char *name, ScrollBuf *dbuf, bool StoreData = false)
     {
         if (name == NULL || name == nullptr)
             throw std::runtime_error("Serial device name NULL");
@@ -175,12 +176,23 @@ public:
         stop = true;
         sleep(1);
         pthread_cancel(thr);
+        if (fp != NULL)
+        {
+            fflush(fp);
+            fclose(fp);
+            fp = NULL;
+        }
         close(fd);
     }
 
     static void *Acquisition(void *_in)
     {
         SerEncoder *in = (SerEncoder *) _in;
+        if (in->store)
+        {
+            std::string fname = "./data_" + std::to_string(get_ts()) + ".txt";
+            in->fp = fopen(fname.c_str(), "w");
+        }
         char buf[50];
         memset(buf, 0x0, sizeof(buf));
         ssize_t rd = 0, wr = 0;
@@ -287,6 +299,8 @@ public:
             flag |= d1 & 0x1;            // VA Decoder status bit
             val = (d1 & 0x3fffffe) >> 1; // select [1..25]
             in->dbuf->AddPoint(ts, flag, val);
+            if (in->fp != NULL)
+                fprintf(in->fp, "%" PRIu64 ",%u,%d,%d\n", ts, flag, val, d1);
         }
         return NULL;
     }
@@ -296,4 +310,6 @@ private:
     int fd;
     bool stop;
     pthread_t thr;
+    bool store;
+    FILE *fp;
 };

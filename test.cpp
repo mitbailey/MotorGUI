@@ -6,7 +6,7 @@
 int main()
 {
     ScrollBuf dbuf(2000);
-    SerEncoder enc("/dev/ttyUSB0", &dbuf);
+    SerEncoder enc("/dev/ttyUSB0", &dbuf, true);
     int count = 100;
     while (dbuf.data.empty() && count--)
     {

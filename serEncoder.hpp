@@ -121,7 +121,7 @@ public:
                                 // no canonical processing
         tty.c_oflag = 0;        // no remapping, no delays
         tty.c_cc[VMIN] = 0;     // read doesn't block
-        tty.c_cc[VTIME] = 10;   // 10 seconds read timeout
+        tty.c_cc[VTIME] = 10;   // 1 seconds read timeout
 
         tty.c_iflag &= ~(IXON | IXOFF | IXANY); // shut off xon/xoff ctrl
 
@@ -246,6 +246,7 @@ public:
                 // 2. successfully read, shift by 1
                 hdr[0] = hdr[1];
                 hdr[1] = hdr[2];
+                hdr[2] = hdr[3];
                 hdr[3] = hdr[4];
                 hdr[4] = c;
                 printf("In loop: %s\n", hdr);

@@ -161,6 +161,7 @@ public:
         int rc = pthread_attr_init(&attr);
         rc = pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
         printf("Creating acquisition thread on %p\n", this);
+        stop = false;
         rc = pthread_create(&thr, NULL, &Acquisition, (void *)this);
         if (rc != 0)
         {

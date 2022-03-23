@@ -229,6 +229,8 @@ public:
                     throw std::runtime_error("Could not read from serial on line " + std::to_string(__LINE__));
                 }
             }
+            printf("Init HDR: %s\n", hdr);
+            fflush(stdout);
             // afterward...
             while (strncasecmp(hdr, "*0R0", 4) != 0)
             {
@@ -246,6 +248,8 @@ public:
                 hdr[1] = hdr[2];
                 hdr[3] = hdr[4];
                 hdr[4] = c;
+                printf("In loop: %s\n", hdr);
+                fflush(stdout);
             }
             // pattern matched at this point
             // read up to , for port 1; read after , to \r for port 2

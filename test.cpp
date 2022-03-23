@@ -16,13 +16,22 @@ int main()
         printf("                                                          \r");
     }
     printf("\n");
+    int ofst = dbuf.ofst;
     while (dbuf.ofst < dbuf.max_sz)
     {
         uint64_t ts = dbuf.tstamp[dbuf.ofst];
         uint8_t flag = dbuf.flags[dbuf.ofst];
         int val = dbuf.data[dbuf.ofst];
-        printf("%" PRIu64 " %02x %d\n", ts, flag, val);
-        fflush(stdout);
+        if (ofst != dbuf.ofst)
+        {   
+            printf("%" PRIu64 " %02x %d\n", ts, flag, val);
+            fflush(stdout);
+            ofst = dbuf.ofst;
+        }
+        else
+        {
+            usleep(1000);
+        }
     }
     return 0;
 }

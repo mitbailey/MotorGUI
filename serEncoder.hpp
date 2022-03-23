@@ -8,6 +8,7 @@
 #include <stdint.h>
 #include <pthread.h>
 #include <inttypes.h>
+#include <signal.h>
 
 #include <string>
 #include <stdexcept>
@@ -173,8 +174,6 @@ public:
 
     ~SerEncoder()
     {
-        printf(__func__);
-        fflush(stdout);
         stop = true;
         sleep(1);
         pthread_cancel(thr);
@@ -306,7 +305,7 @@ public:
         }
         return NULL;
     }
-
+    
 private:
     ScrollBuf *dbuf;
     int fd;
@@ -315,3 +314,4 @@ private:
     bool store;
     FILE *fp;
 };
+

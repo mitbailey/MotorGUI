@@ -221,7 +221,6 @@ public:
             memset(hdr, 0, sizeof(hdr));
             // read 4 bytes first
             while (strlen(hdr) < 4)
-                ;
             {
                 int len = strlen(hdr);
                 rd = read(in->fd, hdr + len, 4 - len);

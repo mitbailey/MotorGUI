@@ -15,6 +15,7 @@ endif
 
 UNAME_S := $(shell uname -s)
 
+NPROCS := 1
 EDCFLAGS+= -I include/ -I ./ -Wall -O2 -std=gnu11 -I libs/gl3w -DIMGUI_IMPL_OPENGL_LOADER_GL3W
 CXXFLAGS:= -I include/ -I ./imgui/include -I ./ -Wall -O2 -fpermissive -std=gnu++11 -I libs/gl3w -DIMGUI_IMPL_OPENGL_LOADER_GL3W $(CXXFLAGS)
 LIBS = -lpthread -lm
@@ -24,6 +25,7 @@ ifeq ($(UNAME_S), Linux) #LINUX
 	LIBS += -lGL `pkg-config --static --libs glfw3`
 	CXXFLAGS += `pkg-config --cflags glfw3`
 	CFLAGS = $(CXXFLAGS)
+	NPROCS:=$(shell grep -c ^processor /proc/cpuinfo)
 endif
 
 ifeq ($(UNAME_S), Darwin) #APPLE
@@ -35,6 +37,7 @@ ifeq ($(UNAME_S), Darwin) #APPLE
 
 	CXXFLAGS += -I/usr/local/include -I/opt/local/include
 	CFLAGS = $(CXXFLAGS)
+	NPROCS:=$(shell system_profiler | awk '/Number Of CPUs/{print $4}{next;}')
 endif
 
 GUILIB=imgui/libimgui_glfw.a # ImGui library with glfw backend
@@ -49,10 +52,10 @@ test: $(GUILIB) $(PLOTLIB) # Build the OpenGL2 test program
 
 
 $(GUILIB): # Build the ImGui library
-	cd imgui && make -f Makefile.imgui && cd ..
+	cd imgui && make -f Makefile.imgui -j$(NPROCS) && cd ..
 
 $(PLOTLIB): # Build the ImPlot library
-	cd imgui && make -f Makefile.implot && cd ..
+	cd imgui && make -f Makefile.implot -j$(NPROCS) && cd ..
 
 %.o: %.cpp
 	$(CXX) $(CXXFLAGS) -o $@ -c $<
@@ -67,4 +70,7 @@ clean:
 spotless: clean
 	cd imgui && make -f Makefile.imgui spotless && cd ..
 	cd imgui && make -f Makefile.implot spotless && cd ..
+
+cdata:
+	rm -vf *.txt
 

@@ -91,13 +91,66 @@ uint64_t SerEncoder::dataCount() const
     return count;
 }
 
+static unsigned char lookup[16] = {
+    0x0,
+    0x8,
+    0x4,
+    0xc,
+    0x2,
+    0xa,
+    0x6,
+    0xe,
+    0x1,
+    0x9,
+    0x5,
+    0xd,
+    0x3,
+    0xb,
+    0x7,
+    0xf,
+};
+
+static inline uint8_t reverse(uint8_t n)
+{
+    // Reverse the top and bottom nibble then swap them.
+    return (lookup[n & 0b1111] << 4) | lookup[n >> 4];
+}
+
 void SerEncoder::getData(uint64_t &ts, int &val, uint8_t &flag)
 {
     ts = this->ts;
-    val = (this->val & 0xffffe) >> 1;
+    // flip the source value
+    uint8_t tmp[sizeof(int)];
+    *(int *)tmp = this->val;
+    for (int i = 0; i < (int) sizeof(tmp); i++)
+        tmp[i] = reverse(tmp[i]);
+    uint8_t c;
+    c = tmp[0];
+    tmp[0] = tmp[3];
+    tmp[3] = c;
+    c = tmp[1];
+    tmp[1] = tmp[2];
+    tmp[2] = c;
+    // end flip
+    int tmp2 = *(int *)tmp; // get the flipped value
     flag = 0;
-    flag |= this->val & 0x1;
-    flag |= (this->val >> 19) & 0xe;
+    flag |= tmp2 & 0x1; // VA Decoder status
+    flag |= (tmp2 >> 19) & 0xe; // ..0 bits, Parity, VA Decode error, Sig quality WDOG, Quad error
+    tmp2 &= 0xffffe; // get the value bits
+    tmp2 >>= 1; // remove VA Decoder status
+    // flip again
+    *(int *)tmp = tmp2;
+    for (int i = 0; i < (int) sizeof(tmp); i++)
+        tmp[i] = reverse(tmp[i]);
+    c = tmp[0];
+    tmp[0] = tmp[3];
+    tmp[3] = c;
+    c = tmp[1];
+    tmp[1] = tmp[2];
+    tmp[2] = c;
+    // end flip
+    val = *(int *)tmp;
+    val >>= 13;
 }
 
 void SerEncoder::Acquisition(void *_in)

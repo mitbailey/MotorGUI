@@ -76,7 +76,9 @@ SerEncoder::~SerEncoder()
         fclose(fp);
         fp = NULL;
     }
-    close(fd);
+    int _fd = fd;
+    fd = 0;
+    close(_fd);
 }
 
 bool SerEncoder::hasData() const
@@ -147,10 +149,10 @@ void SerEncoder::Acquisition(void *_in)
         {
             int len = strlen((const char *)hdr);
             rd = read(in->fd, hdr + len, 4 - len);
-            if (rd < 0)
-            {
+            if (rd < 0 && in->fd > 0)
+                break;
+            else if (rd < 0)
                 throw std::runtime_error("Could not read from serial on line " + std::to_string(__LINE__));
-            }
         }
         // afterward...
         while (strncasecmp((const char *)hdr, "*0R0", 4) != 0)
@@ -158,10 +160,10 @@ void SerEncoder::Acquisition(void *_in)
             // 1. read 1 byte
             char c = 0;
             rd = read(in->fd, &c, 1);
-            if (rd < 0)
-            {
+            if (rd < 0 && in->fd > 0)
+                break;
+            else if (rd < 0)
                 throw std::runtime_error("Could not read from serial on line " + std::to_string(__LINE__));
-            }
             else if (rd == 0)
                 continue;
             // 2. successfully read, shift by 1
@@ -184,7 +186,9 @@ void SerEncoder::Acquisition(void *_in)
         {
             c = 0;
             rd = read(in->fd, &c, 1);
-            if (rd < 0)
+            if (rd < 0 && in->fd > 0)
+                break;
+            else if (rd < 0)
                 throw std::runtime_error("Could not read from serial on line " + std::to_string(__LINE__));
             buf[idx] = c;
             idx += rd;
@@ -199,7 +203,9 @@ void SerEncoder::Acquisition(void *_in)
         // {
         //     c = 0;
         //     rd = read(in->fd, &c, 1);
-        //     if (rd < 0)
+        //     if (rd < 0 && in->fd > 0)
+        //         break;
+        //     else if (rd < 0)
         //         throw std::runtime_error("Could not read from serial on line " + std::to_string(__LINE__));
         //     buf[idx] = c;
         //     idx += rd;
@@ -207,6 +213,7 @@ void SerEncoder::Acquisition(void *_in)
         //         throw std::runtime_error("Buffer overflow on line " + std::to_string(__LINE__));
         // } while (c != '\r');
         in->ts = get_ts();
+        // printf("%" PRIu64 ",%d\n", in->ts, in->val);
         in->count++;
         if (in->fp != NULL)
             fprintf(in->fp, "%" PRIu64 ",%d\n", in->ts, in->val);

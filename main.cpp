@@ -13,6 +13,11 @@
 #include "implot/implot.h"
 #include "SerEncoder.hpp"
 #include <stdio.h>
+#define eprintf(str, ...)                                                         \
+    {                                                                             \
+        fprintf(stderr, "%s(),%d: " str "\n", __func__, __LINE__, ##__VA_ARGS__); \
+        fflush(stderr);                                                           \
+    }
 #ifdef __APPLE__
 #define GL_SILENCE_DEPRECATION
 #endif
@@ -179,7 +184,6 @@ int main(int, char **)
     // IM_ASSERT(font != NULL);
 
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
-
     // Main loop
     while (!glfwWindowShouldClose(window))
     {
@@ -214,11 +218,14 @@ int main(int, char **)
         else
         {
             if (ImGui::Button("Stop Acquisition"))
-            delete enc;
-            enc = nullptr;
+            {
+                delete enc;
+                enc = nullptr;
+                ser_running = false;
+            }
         }
         // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
-        if (!enc->hasData() || enc == nullptr)
+        if (enc == nullptr || !enc->hasData())
         {
             ImGui::Text("Data not available");
         }
@@ -228,17 +235,20 @@ int main(int, char **)
             t += ImGui::GetIO().DeltaTime;
             static uint64_t ts;
             static uint8_t flag;
+            static uint8_t lastflag = 0;
             static int val;
             enc->getData(ts, val, flag);
+            if (flag != 0)
+                lastflag = flag;
             buf->AddPoint(t, (float)val);
-            ImGui::Begin("Encoder Data");
+            ImGui::Text("Data: %d - %u\tLast error: %u", val, flag, lastflag);
             // ImGui::Text("Flag: %u", dbuf.flags[ofst]);
             ImPlot::SetNextPlotLimitsX(t - hist, t, ImGuiCond_Always);
             ImPlot::SetNextPlotLimitsY(buf->Min(t - hist, t), buf->Max(t - hist, t), ImGuiCond_Always);
             ImGui::SliderFloat("Points", &hist, 10, 1000, "%.1f");
             if (ImPlot::BeginPlot("Encoder Data", "Time", "Position", ImVec2(-1, 300)))
             {
-                ImPlot::PlotLine("##Line", &buf->Data[0].x, &buf->Data[0].y, buf->Data.size(), buf->Offset, sizeof(float));
+                ImPlot::PlotLine("##Line", &buf->Data[0].x, &buf->Data[0].y, buf->Data.size(), buf->Offset, 2 * sizeof(float));
                 ImPlot::EndPlot();
             }
         }

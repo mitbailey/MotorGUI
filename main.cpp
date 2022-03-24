@@ -11,7 +11,7 @@
 #include "backend/imgui_impl_glfw.h"
 #include "backend/imgui_impl_opengl2.h"
 #include "implot/implot.h"
-#include "serEncoder.hpp"
+#include "SerEncoder.hpp"
 #include <stdio.h>
 #ifdef __APPLE__
 #define GL_SILENCE_DEPRECATION
@@ -40,28 +40,86 @@ static void glfw_error_callback(int error, const char *description)
     fprintf(stderr, "Glfw Error %d: %s\n", error, description);
 }
 
-struct ScrollingBuffer {
+struct ScrollingBuffer
+{
     int MaxSize;
     int Offset;
     ImVector<ImVec2> Data;
-    ScrollingBuffer(int max_size = 2000) {
+    ScrollingBuffer(int max_size = 2000)
+    {
         MaxSize = max_size;
-        Offset  = 0;
+        Offset = 0;
         Data.reserve(MaxSize);
     }
-    void AddPoint(float x, float y) {
+    void AddPoint(float x, float y)
+    {
         if (Data.size() < MaxSize)
-            Data.push_back(ImVec2(x,y));
-        else {
-            Data[Offset] = ImVec2(x,y);
-            Offset =  (Offset + 1) % MaxSize;
+            Data.push_back(ImVec2(x, y));
+        else
+        {
+            Data[Offset] = ImVec2(x, y);
+            Offset = (Offset + 1) % MaxSize;
         }
     }
-    void Erase() {
-        if (Data.size() > 0) {
+    void Erase()
+    {
+        if (Data.size() > 0)
+        {
             Data.shrink(0);
-            Offset  = 0;
+            Offset = 0;
         }
+    }
+
+    float Min(float xmin, float xmax)
+    {
+        float res = 0;
+        ImVector<int> index;
+        index.reserve(MaxSize);
+        for (int i = 0; i < Data.size(); i++) // find valid indices
+        {
+            float x = Data[i].x;
+            if (x > xmin && x < xmax)
+                index.push_back(i);
+        }
+        if (index.size() > 0) // if valid indices found
+        {
+            res = Data[index[0]].y;
+            for (int i = 1; i < index.size(); i++)
+            {
+                float y = Data[index[i]].y;
+                if (res > y)
+                {
+                    res = y;
+                }
+            }
+        }
+        return res;
+    }
+
+    float Max(float xmin, float xmax)
+    {
+        float res = 0;
+        ImVector<int> index;
+        index.reserve(MaxSize);
+        for (int i = 0; i < Data.size(); i++) // find valid indices
+        {
+            float x = Data[i].x;
+            if (x > xmin && x < xmax)
+                index.push_back(i);
+        }
+        if (index.size() > 0) // if valid indices found
+        {
+            res = Data[index[0]].y;
+            for (int i = 1; i < index.size(); i++)
+            {
+                float y = Data[index[i]].y;
+                if (res < y)
+                {
+                    res = y;
+                }
+            }
+        }
+        return res;
     }
 };
 
@@ -74,15 +132,10 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 int main(int, char **)
 #endif
 {
-    SerEncoder *enc = new SerEncoder("/dev/ttyUSB0", true);
-    int count = 100;
-    while (dbuf.data.empty() && count--)
-    {
-        printf("Waiting for data buffer to fill... %d s remaining\r", count);
-        fflush(stdout);
-        sleep(1);
-        printf("                                                          \r");
-    }
+    SerEncoder *enc = nullptr;
+    ScrollingBuffer *buf = new ScrollingBuffer(2000);
+    if (buf == nullptr)
+        throw std::runtime_error("Hands in the air!");
     // Setup window
     glfwSetErrorCallback(glfw_error_callback);
     if (!glfwInit())
@@ -125,9 +178,6 @@ int main(int, char **)
     // ImFont* font = io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\ArialUni.ttf", 18.0f, NULL, io.Fonts->GetGlyphRangesJapanese());
     // IM_ASSERT(font != NULL);
 
-    // Our state
-    bool show_demo_window = true;
-    bool show_another_window = false;
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
     // Main loop
@@ -145,29 +195,54 @@ int main(int, char **)
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
-        // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
-        if (dbuf.data.empty())
+        ImGui::Begin("Encoder Data");
+        static bool ser_running = false;
+        static char ser_name[50] = "/dev/ttyUSB0";
+        ImGui::InputText("Serial Device", ser_name, IM_ARRAYSIZE(ser_name), ser_running ? ImGuiInputTextFlags_ReadOnly : ImGuiInputTextFlags_AutoSelectAll);
+        static bool ser_save = false;
+        ImGui::Checkbox("Save Data", &ser_save);
+        ImGui::SameLine();
+        if (!ser_running)
         {
-            ImGui::Begin("Encoder Data");
-            ImGui::Text("Data not available");
-            ImGui::End();
+            if (ImGui::Button("Start Acquisition"))
+            {
+                enc = new SerEncoder(ser_name, ser_save);
+                if (enc != nullptr)
+                    ser_running = true;
+            }
         }
         else
         {
-            static int ofst, hist = 100;
+            if (ImGui::Button("Stop Acquisition"))
+            delete enc;
+            enc = nullptr;
+        }
+        // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
+        if (!enc->hasData() || enc == nullptr)
+        {
+            ImGui::Text("Data not available");
+        }
+        else
+        {
+            static float t = 0, hist = 100;
+            t += ImGui::GetIO().DeltaTime;
+            static uint64_t ts;
+            static uint8_t flag;
+            static int val;
+            enc->getData(ts, val, flag);
+            buf->AddPoint(t, (float)val);
             ImGui::Begin("Encoder Data");
-            ImGui::Text("Flag: %u", dbuf.flags[ofst]);
-            ofst = dbuf.ofst;
-            ImPlot::SetNextPlotLimitsX(0.001 * dbuf.tstamp[ofst - hist], 0.001 * dbuf.tstamp[ofst], ImGuiCond_Always);
-            ImPlot::SetNextPlotLimitsY(dbuf.data[ofst - hist], dbuf.data[ofst], ImGuiCond_Always);
-            ImGui::SliderInt("Points", &hist, 10, 1000, "%d");
+            // ImGui::Text("Flag: %u", dbuf.flags[ofst]);
+            ImPlot::SetNextPlotLimitsX(t - hist, t, ImGuiCond_Always);
+            ImPlot::SetNextPlotLimitsY(buf->Min(t - hist, t), buf->Max(t - hist, t), ImGuiCond_Always);
+            ImGui::SliderFloat("Points", &hist, 10, 1000, "%.1f");
             if (ImPlot::BeginPlot("Encoder Data", "Time", "Position", ImVec2(-1, 300)))
             {
-                ImPlot::PlotLine("##Line", &dbuf.tstamp.Data[0], &dbuf.data.Data[0], dbuf.data.size(), ofst, sizeof(float));
+                ImPlot::PlotLine("##Line", &buf->Data[0].x, &buf->Data[0].y, buf->Data.size(), buf->Offset, sizeof(float));
                 ImPlot::EndPlot();
             }
-            ImGui::End();
         }
+        ImGui::End();
 
         // Rendering
         ImGui::Render();
@@ -197,6 +272,9 @@ int main(int, char **)
 
     glfwDestroyWindow(window);
     glfwTerminate();
+
+    if (enc != nullptr)
+        delete enc;
 
     return 0;
 }

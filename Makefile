@@ -49,7 +49,7 @@ all: $(GUILIB) $(PLOTLIB) test # $(PLOTLIB)
 	echo Platform: $(ECHO_MESSAGE)
 
 test: $(GUILIB) $(PLOTLIB) $(CXXOBJS) # Build the OpenGL2 test program
-	$(CXX) -o test.out test.cpp $(CXXOBJS) $(CXXFLAGS) $(GUILIB) $(PLOTLIB) \
+	$(CXX) -o test.out main.cpp $(CXXOBJS) $(CXXFLAGS) $(GUILIB) $(PLOTLIB) \
 	$(LIBS)
 
 

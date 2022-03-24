@@ -234,15 +234,14 @@ int main(int, char **)
             static float t = 0, hist = 100;
             t += ImGui::GetIO().DeltaTime;
             static uint64_t ts;
-            static uint8_t flag;
-            static uint8_t lastflag = 0;
+            static SerEncoder_Flags flag;
+            static SerEncoder_Flags lastflag;
             static int val;
             enc->getData(ts, val, flag);
-            if (flag != 0)
+            if (flag.val != 0)
                 lastflag = flag;
             buf->AddPoint(t, (float)val);
-            ImGui::Text("Data: %d - %u\tLast error: %u", val, flag, lastflag);
-            // ImGui::Text("Flag: %u", dbuf.flags[ofst]);
+            ImGui::Text("Data: %d - 0x%02x\tLast error: 0x%02x", val, flag.val, lastflag.val);
             ImPlot::SetNextPlotLimitsX(t - hist, t, ImGuiCond_Always);
             ImPlot::SetNextPlotLimitsY(buf->Min(t - hist, t), buf->Max(t - hist, t), ImGuiCond_Always);
             ImGui::SliderFloat("Points", &hist, 10, 1000, "%.1f");

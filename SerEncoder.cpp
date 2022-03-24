@@ -1,6 +1,6 @@
 #include "SerEncoder.hpp"
 
-SerEncoder::SerEncoder(const char *name, bool StoreData)
+SerEncoder::SerEncoder(const char *name, bool StoreData, bool data18)
 {
     if (name == NULL || name == nullptr)
         throw std::runtime_error("Serial device name NULL");
@@ -52,6 +52,7 @@ SerEncoder::SerEncoder(const char *name, bool StoreData)
         throw std::runtime_error("Could not write to the device");
     }
     ssize_t rd = 0;
+    this->data18 = data18;
     for (int i = 10; (i > 0) && (rd <= 0); i--)
     {
         rd = read(fd, buf, sizeof(buf) - 1);
@@ -116,43 +117,27 @@ static inline uint8_t reverse(uint8_t n)
     return (lookup[n & 0b1111] << 4) | lookup[n >> 4];
 }
 
-void SerEncoder::getData(uint64_t &ts, int &val, uint8_t &flag)
+void SerEncoder::getData(uint64_t &ts, int &oval, SerEncoder_Flags &flag)
 {
     ts = this->ts;
-    // flip the source value
-    uint8_t tmp[sizeof(int)];
-    *(int *)tmp = this->val;
-    for (int i = 0; i < (int) sizeof(tmp); i++)
-        tmp[i] = reverse(tmp[i]);
-    uint8_t c;
-    c = tmp[0];
-    tmp[0] = tmp[3];
-    tmp[3] = c;
-    c = tmp[1];
-    tmp[1] = tmp[2];
-    tmp[2] = c;
-    // end flip
-    int tmp2 = *(int *)tmp; // get the flipped value
-    tmp2 >>= 7;
-    flag = 0;
-    flag |= tmp2 & 0x1; // VA Decoder status
-    flag |= (tmp2 >> 19) & 0xe; // ..0 bits, Parity, VA Decode error, Sig quality WDOG, Quad error
-    tmp2 &= 0xffffe; // get the value bits
-    tmp2 >>= 1; // remove VA Decoder status
-    // flip again
-    *(int *)tmp = tmp2;
-    for (int i = 0; i < (int) sizeof(tmp); i++)
-        tmp[i] = reverse(tmp[i]);
-    c = tmp[0];
-    tmp[0] = tmp[3];
-    tmp[3] = c;
-    c = tmp[1];
-    tmp[1] = tmp[2];
-    tmp[2] = c;
-    // end flip
-    uint32_t v = *(uint32_t *)tmp;
-    v >>= 13;
-    val = v;
+    flag.val = 0;
+    flag.val |= val & 0x1; // trailing zero bit
+    flag.val <<= 1;
+    val >>= 1;
+    flag.val |= val & 0x1; // parity bit
+    flag.val <<= 1;
+    val >>= 1;
+    flag.val |= val & 0x1; // va decoder error
+    flag.val <<= 1;
+    val >>= 1;
+    flag.val |= val & 0x1; // signal quality wdog
+    flag.val <<= 1;
+    val >>= 1;
+    flag.val |= val & 0x1; // quadrature error
+    oval = data18 ? val & 0x7fffe : val & 0xffffe; // data bits
+    val >>= data18 ? 19 : 20;
+    val >>= 1;
+    flag.val |= val & 0x1; // va decoder status
 }
 
 void SerEncoder::Acquisition(void *_in)
@@ -167,19 +152,29 @@ void SerEncoder::Acquisition(void *_in)
     memset(buf, 0x0, sizeof(buf));
     ssize_t rd = 0, wr = 0;
     // 2. Write encoder settings
-    char *msg = (char *)"$0L1250\r\n";
+    char *msg;
+    if (in->data18)
+        msg = (char *)"$0L1240\r\n";
+    else
+        msg = (char *)"$0L1250\r\n";
     wr = 0;
     for (int i = 10; (i > 0) && (wr <= 0); i--)
     {
         wr = write(in->fd, msg, strlen(msg));
     }
-    msg = (char *)"$0L2250\r\n";
+    if (in->data18)
+        msg = (char *)"$0L2240\r\n";
+    else
+        msg = (char *)"$0L2250\r\n";
     wr = 0;
     for (int i = 10; (i > 0) && (wr <= 0); i--)
     {
         wr = write(in->fd, msg, strlen(msg));
     }
-    msg = (char *)"$0L1250\r\n";
+    if (in->data18)
+        msg = (char *)"$0L1240\r\n";
+    else
+        msg = (char *)"$0L1250\r\n";
     wr = 0;
     for (int i = 10; (i > 0) && (wr <= 0); i--)
     {

@@ -1,5 +1,5 @@
 #include "imgui/imgui.h"
-#include "serEncoder.hpp"
+#include "SerEncoder.hpp"
 #include <time.h>
 #include <inttypes.h>
 

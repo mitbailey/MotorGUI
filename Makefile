@@ -43,11 +43,13 @@ endif
 GUILIB=imgui/libimgui_glfw.a # ImGui library with glfw backend
 PLOTLIB=imgui/libimplot.a # ImPlot library (backend agnostic)
 
+CXXOBJS = SerEncoder.o
+
 all: $(GUILIB) $(PLOTLIB) test # $(PLOTLIB)
 	echo Platform: $(ECHO_MESSAGE)
 
-test: $(GUILIB) $(PLOTLIB) # Build the OpenGL2 test program
-	$(CXX) -o test.out test.cpp $(CXXFLAGS) $(GUILIB) $(PLOTLIB) \
+test: $(GUILIB) $(PLOTLIB) $(CXXOBJS) # Build the OpenGL2 test program
+	$(CXX) -o test.out test.cpp $(CXXOBJS) $(CXXFLAGS) $(GUILIB) $(PLOTLIB) \
 	$(LIBS)
 
 
@@ -66,6 +68,7 @@ $(PLOTLIB): # Build the ImPlot library
 
 clean:
 	$(RM) test.out
+	$(RM) *.o
 
 spotless: clean
 	cd imgui && make -f Makefile.imgui spotless && cd ..

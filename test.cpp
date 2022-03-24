@@ -5,10 +5,9 @@
 
 int main()
 {
-    ScrollBuf dbuf(2000);
-    SerEncoder enc("/dev/ttyUSB0", &dbuf, true);
+    SerEncoder enc("/dev/ttyUSB0", true);
     int count = 100;
-    while (dbuf.data.empty() && count--)
+    while (!enc.hasData() && count--)
     {
         printf("Waiting for data buffer to fill... %d s remaining\r", count);
         fflush(stdout);
@@ -16,17 +15,18 @@ int main()
         printf("                                                          \r");
     }
     printf("\n");
-    int ofst = dbuf.ofst;
-    while (dbuf.ofst < dbuf.max_sz)
+    while (enc.dataCount() < 5000) // should take 5 seconds
     {
-        uint64_t ts = dbuf.tstamp[dbuf.ofst];
-        uint8_t flag = dbuf.flags[dbuf.ofst];
-        int val = dbuf.data[dbuf.ofst];
-        if (ofst != dbuf.ofst)
+        uint64_t ts;
+        uint8_t flag;
+        int val;
+        static uint64_t ct = enc.dataCount();
+        if (ct != enc.dataCount())
         {   
+            enc.getData(ts, val, flag);
             printf("%" PRIu64 " %02x %d\n", ts, flag, val);
             fflush(stdout);
-            ofst = dbuf.ofst;
+            ct = enc.dataCount();
         }
         else
         {

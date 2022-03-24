@@ -16,76 +16,6 @@
 
 #include "imgui/imgui.h"
 
-class ScrollBuf
-{
-public:
-    ScrollBuf()
-    {
-        max_sz = 600;
-        ofst = 0;
-        tstamp.reserve(max_sz);
-        flags.reserve(max_sz);
-        data.reserve(max_sz);
-    }
-
-    ScrollBuf(int max_size)
-    {
-        max_sz = max_size;
-        ofst = 0;
-        tstamp.reserve(max_sz);
-        flags.reserve(max_sz);
-        data.reserve(max_sz);
-    }
-
-    void AddPoint(uint64_t ts, uint8_t flag, int d)
-    {
-        if (data.size() < max_sz)
-        {
-            data.push_back(d);
-            tstamp.push_back(ts);
-            flags.push_back(flag);
-        }
-        else
-        {
-            data[ofst] = d;
-            tstamp[ofst] = ts;
-            flags[ofst] = flag;
-
-            ofst = (ofst + 1) % max_sz;
-        }
-    }
-    void Erase()
-    {
-        if (data.size() > 0)
-        {
-            data.shrink(0);
-            ofst = 0;
-        }
-    }
-    double Max()
-    {
-        double max = data[0];
-        for (int i = 0; i < data.size(); i++)
-            if (data[i] > max)
-                max = data[i];
-        return max;
-    }
-    double Min()
-    {
-        double min = data[0];
-        for (int i = 0; i < data.size(); i++)
-            if (data[i] < min)
-                min = data[i];
-        return min;
-    }
-
-    int max_sz;
-    int ofst;
-    ImVector<float> tstamp;
-    ImVector<uint8_t> flags;
-    ImVector<float> data;
-};
-
 static inline uint64_t get_ts()
 {
     return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
@@ -94,13 +24,10 @@ static inline uint64_t get_ts()
 class SerEncoder
 {
 public:
-    SerEncoder(const char *name, ScrollBuf *dbuf, bool StoreData = false)
+    SerEncoder(const char *name, bool StoreData = false)
     {
         if (name == NULL || name == nullptr)
             throw std::runtime_error("Serial device name NULL");
-        if (dbuf == NULL || dbuf == nullptr)
-            throw std::runtime_error("Scroll buffer NULL");
-        this->dbuf = dbuf;
         fd = open(name, O_RDWR | O_NOCTTY | O_SYNC);
         if (fd < 0)
             throw std::runtime_error("Could not open device " + std::string(name));
@@ -142,9 +69,9 @@ public:
         // 1. Get serial number
         char buf[50];
         memset(buf, 0x0, sizeof(buf));
-        char *msg = "$0V\r\n";
+        char *msg = (char *) "$0V\r\n";
         ssize_t wr = write(fd, msg, strlen(msg));
-        if (wr != (ssize_t) strlen(msg))
+        if (wr != (ssize_t)strlen(msg))
         {
             throw std::runtime_error("Could not write to the device");
         }
@@ -163,6 +90,7 @@ public:
         int rc = pthread_attr_init(&attr);
         rc = pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
         stop = false;
+        count = 0;
         rc = pthread_create(&thr, NULL, &Acquisition, (void *)this);
         if (rc != 0)
         {
@@ -186,9 +114,28 @@ public:
         close(fd);
     }
 
+    bool hasData() const
+    {
+        return (count > 0);
+    }
+
+    uint64_t dataCount() const
+    {
+        return count;
+    }
+
+    void getData(uint64_t &ts, int &val, uint8_t &flag)
+    {
+        ts = this->ts;
+        val = (this->val & 0x3fffffe) >> 1;
+        flag = 0;
+        flag |= this->val & 0x1;
+        flag |= (this->val >> 25) & 0xe;
+    }
+
     static void *Acquisition(void *_in)
     {
-        SerEncoder *in = (SerEncoder *) _in;
+        SerEncoder *in = (SerEncoder *)_in;
         if (in->store)
         {
             std::string fname = "./data_" + std::to_string(get_ts()) + ".txt";
@@ -198,19 +145,19 @@ public:
         memset(buf, 0x0, sizeof(buf));
         ssize_t rd = 0, wr = 0;
         // 2. Write encoder settings
-        char *msg = "$0L1250\r\n";
+        char *msg = (char *) "$0L1250\r\n";
         wr = 0;
         for (int i = 10; (i > 0) && (wr <= 0); i--)
         {
             wr = write(in->fd, msg, strlen(msg));
         }
-        msg = "$0L2250\r\n";
+        msg = (char *) "$0L2250\r\n";
         wr = 0;
         for (int i = 10; (i > 0) && (wr <= 0); i--)
         {
             wr = write(in->fd, msg, strlen(msg));
         }
-        msg = "$0L1250\r\n";
+        msg = (char *) "$0L1250\r\n";
         wr = 0;
         for (int i = 10; (i > 0) && (wr <= 0); i--)
         {
@@ -219,7 +166,7 @@ public:
         // 3. Wait a sec
         usleep(100000); // 10 ms
         // 4. Start readin'
-        msg = "$0A00010\r\n";
+        msg = (char *) "$0A00010\r\n";
         wr = 0;
         for (int i = 10; (i > 0) && (wr <= 0); i--)
         {
@@ -228,12 +175,12 @@ public:
         while (!in->stop)
         {
             // 1. Detect '*0R0'
-            static char hdr[5];
+            static uint64_t hdr[1];
             memset(hdr, 0, sizeof(hdr));
             // read 4 bytes first
-            while (strlen(hdr) < 4)
+            while (strlen((const char *) hdr) < 4)
             {
-                int len = strlen(hdr);
+                int len = strlen((const char *)hdr);
                 rd = read(in->fd, hdr + len, 4 - len);
                 if (rd < 0)
                 {
@@ -241,7 +188,7 @@ public:
                 }
             }
             // afterward...
-            while (strncasecmp(hdr, "*0R0", 4) != 0)
+            while (strncasecmp((const char *)hdr, "*0R0", 4) != 0)
             {
                 // 1. read 1 byte
                 char c = 0;
@@ -253,11 +200,14 @@ public:
                 else if (rd == 0)
                     continue;
                 // 2. successfully read, shift by 1
-                hdr[0] = hdr[1];
-                hdr[1] = hdr[2];
-                hdr[2] = hdr[3];
-                hdr[3] = hdr[4];
-                hdr[4] = c;
+                hdr[0] >>= 8; // shift by 1 byte
+                hdr[0] |= ((uint64_t) c) << 32; // place captured byte at 5th byte place ([32..39])
+                hdr[0] &= 0x000000ffffffffff; // zero everything [40..63]
+                // hdr[0] = hdr[1];
+                // hdr[1] = hdr[2];
+                // hdr[2] = hdr[3];
+                // hdr[3] = hdr[4];
+                // hdr[4] = c;
             }
             // pattern matched at this point
             // read up to , for port 1; read after , to \r for port 2
@@ -273,10 +223,10 @@ public:
                     throw std::runtime_error("Could not read from serial on line " + std::to_string(__LINE__));
                 buf[idx] = c;
                 idx += rd;
-                if (idx > (int) sizeof(buf) - 1)
+                if (idx > (int)sizeof(buf) - 1)
                     throw std::runtime_error("Buffer overflow on line " + std::to_string(__LINE__));
             } while (c != ',');
-            int d1 = atoi(buf);
+            in->val = atoi(buf);
             // read part 2
             // memset(buf, 0x0, sizeof(buf));
             // idx = 0;
@@ -291,27 +241,21 @@ public:
             //     if (idx > (int) sizeof(buf) - 1)
             //         throw std::runtime_error("Buffer overflow on line " + std::to_string(__LINE__));
             // } while (c != '\r');
-            static uint64_t ts;
-            static uint8_t flag;
-            static int val;
-            ts = get_ts();
-            flag |= (d1 >> 26);          // 25 bit readout, bit 0 is VA decoder status bit
-            flag <<= 1;                  // move by 1 bit to make room for VA decoder status bit
-            flag |= d1 & 0x1;            // VA Decoder status bit
-            val = (d1 & 0x3fffffe) >> 1; // select [1..25]
-            in->dbuf->AddPoint(ts * 001, flag, val);
+            in->ts = get_ts();
+            in->count++;
             if (in->fp != NULL)
-                fprintf(in->fp, "%" PRIu64 ",%u,%d,%d\n", ts, flag, val, d1);
+                fprintf(in->fp, "%" PRIu64 ",%d\n", in->ts, in->val);
         }
         return NULL;
     }
 
 private:
-    ScrollBuf *dbuf;
     int fd;
     bool stop;
     pthread_t thr;
     bool store;
     FILE *fp;
+    uint64_t ts;
+    int val;
+    uint64_t count;
 };
-

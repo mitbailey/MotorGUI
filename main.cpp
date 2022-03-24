@@ -40,6 +40,31 @@ static void glfw_error_callback(int error, const char *description)
     fprintf(stderr, "Glfw Error %d: %s\n", error, description);
 }
 
+struct ScrollingBuffer {
+    int MaxSize;
+    int Offset;
+    ImVector<ImVec2> Data;
+    ScrollingBuffer(int max_size = 2000) {
+        MaxSize = max_size;
+        Offset  = 0;
+        Data.reserve(MaxSize);
+    }
+    void AddPoint(float x, float y) {
+        if (Data.size() < MaxSize)
+            Data.push_back(ImVec2(x,y));
+        else {
+            Data[Offset] = ImVec2(x,y);
+            Offset =  (Offset + 1) % MaxSize;
+        }
+    }
+    void Erase() {
+        if (Data.size() > 0) {
+            Data.shrink(0);
+            Offset  = 0;
+        }
+    }
+};
+
 #if !defined(DEBUG_CONSOLE) && defined(IMGUI_ON_WINDOWS)
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
                       _In_opt_ HINSTANCE hPrevInstance,
@@ -49,8 +74,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 int main(int, char **)
 #endif
 {
-    ScrollBuf dbuf(2000);
-    SerEncoder enc("/dev/ttyUSB0", &dbuf, true);
+    SerEncoder *enc = new SerEncoder("/dev/ttyUSB0", true);
     int count = 100;
     while (dbuf.data.empty() && count--)
     {

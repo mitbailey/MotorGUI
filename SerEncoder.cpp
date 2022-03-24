@@ -133,6 +133,7 @@ void SerEncoder::getData(uint64_t &ts, int &val, uint8_t &flag)
     tmp[2] = c;
     // end flip
     int tmp2 = *(int *)tmp; // get the flipped value
+    tmp2 >>= 7;
     flag = 0;
     flag |= tmp2 & 0x1; // VA Decoder status
     flag |= (tmp2 >> 19) & 0xe; // ..0 bits, Parity, VA Decode error, Sig quality WDOG, Quad error
@@ -149,8 +150,9 @@ void SerEncoder::getData(uint64_t &ts, int &val, uint8_t &flag)
     tmp[1] = tmp[2];
     tmp[2] = c;
     // end flip
-    val = *(int *)tmp;
-    val >>= 13;
+    uint32_t v = *(uint32_t *)tmp;
+    v >>= 13;
+    val = v;
 }
 
 void SerEncoder::Acquisition(void *_in)

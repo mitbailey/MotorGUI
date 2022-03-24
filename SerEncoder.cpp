@@ -94,10 +94,10 @@ uint64_t SerEncoder::dataCount() const
 void SerEncoder::getData(uint64_t &ts, int &val, uint8_t &flag)
 {
     ts = this->ts;
-    val = (this->val & 0x3fffffe) >> 1;
+    val = (this->val & 0xffffe) >> 1;
     flag = 0;
     flag |= this->val & 0x1;
-    flag |= (this->val >> 25) & 0xe;
+    flag |= (this->val >> 19) & 0xe;
 }
 
 void SerEncoder::Acquisition(void *_in)

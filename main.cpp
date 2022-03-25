@@ -145,7 +145,8 @@ int main(int, char **)
     glfwSetErrorCallback(glfw_error_callback);
     if (!glfwInit())
         return 1;
-    GLFWwindow *window = glfwCreateWindow(1280, 720, "Dear ImGui GLFW+OpenGL2 example", NULL, NULL);
+    static int winx = 720, winy = 720;
+    GLFWwindow *window = glfwCreateWindow(winx, winy, "Stepper Motor Testing Utility", NULL, NULL);
     if (window == NULL)
         return 1;
     glfwMakeContextCurrent(window);
@@ -199,32 +200,64 @@ int main(int, char **)
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
-        ImGui::Begin("Encoder Data");
-        static bool ser_running = false;
-        static char ser_name[50] = "/dev/ttyUSB0";
-        ImGui::InputText("Serial Device", ser_name, IM_ARRAYSIZE(ser_name), ser_running ? ImGuiInputTextFlags_ReadOnly : ImGuiInputTextFlags_AutoSelectAll);
-        static bool ser_save = false;
-        ImGui::Checkbox("Save Data", &ser_save);
-        ImGui::SameLine();
-        if (!ser_running)
+        ImGui::SetNextWindowPos(ImVec2(0,0), ImGuiCond_Always);
+        glfwGetWindowSize(window, &winx, &winy);
+        ImGui::SetNextWindowSize(ImVec2(winx, winy), ImGuiCond_Always);
+        ImGui::Begin("Control Panel");
+        ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 5.0f);
         {
-            if (ImGui::Button("Start Acquisition"))
+            ImGui::BeginChild("Position Acquisition", ImVec2(ImGui::GetWindowContentRegionWidth() * 0.5f, 100), ImGuiWindowFlags_None | ImGuiWindowFlags_ChildWindow);
+            static bool ser_running = false;
+            static char ser_name[50] = "/dev/ttyUSB0";
+            static std::string errmsg = "";
+            static bool err = false;
+            ImGui::InputText("Serial Device", ser_name, IM_ARRAYSIZE(ser_name), ser_running ? ImGuiInputTextFlags_ReadOnly : ImGuiInputTextFlags_AutoSelectAll);
+            static bool ser_save = false;
+            ImGui::Checkbox("Save Data##1", &ser_save);
+            ImGui::SameLine(ImGui::GetWindowWidth() - 140);
+            ImGui::PushItemWidth(-FLT_MIN);
+            if (!ser_running)
             {
-                enc = new SerEncoder(ser_name, ser_save);
-                if (enc != nullptr)
-                    ser_running = true;
+                if (ImGui::Button("Start Acquisition"))
+                {
+                    try
+                    {
+                        enc = new SerEncoder(ser_name, ser_save);
+                    }
+                    catch (const std::exception &e)
+                    {
+                        errmsg = e.what();
+                        err = true;
+                    }
+                    if (enc != nullptr)
+                        ser_running = true;
+                }
             }
-        }
-        else
-        {
-            if (ImGui::Button("Stop Acquisition"))
+            else
             {
-                delete enc;
-                enc = nullptr;
-                ser_running = false;
+                if (ImGui::Button("Stop Acquisition"))
+                {
+                    delete enc;
+                    enc = nullptr;
+                    ser_running = false;
+                }
             }
+            ImGui::PopItemWidth();
+            if (err)
+            {
+                ImGui::PushItemWidth(ImGui::GetWindowContentRegionWidth() - 50);
+                ImGui::TextWrapped("%s", errmsg.c_str());
+                ImGui::PopItemWidth();
+                ImGui::SameLine();
+                if (ImGui::Button("Clear##1"))
+                    err = false;
+            }
+            ImGui::EndChild();
         }
-        // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
+        ImGui::PopStyleVar();
+
+        ImGui::Separator();
+
         if (enc == nullptr || !enc->hasData())
         {
             ImGui::Text("Data not available");

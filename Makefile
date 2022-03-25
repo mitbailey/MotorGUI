@@ -16,8 +16,8 @@ endif
 UNAME_S := $(shell uname -s)
 
 NPROCS := 1
-EDCFLAGS+= -I include/ -I ./ -Wall -O2 -std=gnu11 -I libs/gl3w -DIMGUI_IMPL_OPENGL_LOADER_GL3W
-CXXFLAGS:= -I include/ -I ./imgui/include -I ./ -Wall -O2 -fpermissive -std=gnu++11 -I libs/gl3w -DIMGUI_IMPL_OPENGL_LOADER_GL3W $(CXXFLAGS)
+EDCFLAGS+= -I clkgen/include -I Adafruit/ -I i2cbus/ -I include/ -I ./ -Wall -O2 -std=gnu11 -I libs/gl3w -DIMGUI_IMPL_OPENGL_LOADER_GL3W
+CXXFLAGS:= -I clkgen/include -I Adafruit/ -I i2cbus/ -I include/ -I ./imgui/include -I ./ -Wall -O2 -fpermissive -std=gnu++11 -I libs/gl3w -DIMGUI_IMPL_OPENGL_LOADER_GL3W $(CXXFLAGS)
 LIBS = -lpthread -lm
 
 ifeq ($(UNAME_S), Linux) #LINUX
@@ -43,13 +43,18 @@ endif
 GUILIB=imgui/libimgui_glfw.a # ImGui library with glfw backend
 PLOTLIB=imgui/libimplot.a # ImPlot library (backend agnostic)
 
-CXXOBJS = SerEncoder.o
+CXXOBJS = SerEncoder.o \
+			Adafruit/MotorShield.o
+
+COBJS = i2cbus/i2cbus.o
+
+LIBCLKGEN = clkgen/libclkgen.a
 
 all: $(GUILIB) $(PLOTLIB) test # $(PLOTLIB)
 	echo Platform: $(ECHO_MESSAGE)
 
-test: $(GUILIB) $(PLOTLIB) $(CXXOBJS) # Build the OpenGL2 test program
-	$(CXX) -o test.out main.cpp $(CXXOBJS) $(CXXFLAGS) $(GUILIB) $(PLOTLIB) \
+test: $(GUILIB) $(PLOTLIB) $(CXXOBJS) $(COBJS) $(LIBCLKGEN)# Build the OpenGL2 test program
+	$(CXX) -o test.out main.cpp $(CXXOBJS) $(COBJS) $(CXXFLAGS) $(GUILIB) $(PLOTLIB) $(LIBCLKGEN) \
 	$(LIBS)
 
 
@@ -58,6 +63,9 @@ $(GUILIB): # Build the ImGui library
 
 $(PLOTLIB): # Build the ImPlot library
 	cd imgui && make -f Makefile.implot -j$(NPROCS) && cd ..
+
+$(LIBCLKGEN):
+	cd clkgen && make && cd ..
 
 %.o: %.cpp
 	$(CXX) $(CXXFLAGS) -o $@ -c $<
@@ -69,10 +77,12 @@ $(PLOTLIB): # Build the ImPlot library
 clean:
 	$(RM) test.out
 	$(RM) *.o
+	$(RM) $(CXXOBJS) $(COBJS)
 
 spotless: clean
 	cd imgui && make -f Makefile.imgui spotless && cd ..
 	cd imgui && make -f Makefile.implot spotless && cd ..
+	cd clkgen && make clean && cd ..
 
 cdata:
 	rm -vf *.txt

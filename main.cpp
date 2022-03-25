@@ -207,7 +207,7 @@ int main(int, char **)
         ImGui::Begin("Control Panel");
         ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 5.0f);
         {
-            ImGui::BeginChild("Position Acquisition", ImVec2(ImGui::GetWindowContentRegionWidth() * 0.5f, 100), ImGuiWindowFlags_None | ImGuiWindowFlags_ChildWindow);
+            ImGui::BeginChild("Position Acquisition", ImVec2(ImGui::GetWindowContentRegionWidth() * 0.5f, 150), ImGuiWindowFlags_None | ImGuiWindowFlags_ChildWindow);
             static bool ser_running = false;
             static char ser_name[50] = "/dev/ttyUSB0";
             static std::string errmsg = "";
@@ -250,14 +250,15 @@ int main(int, char **)
                 ImGui::PushItemWidth(ImGui::GetWindowContentRegionWidth() - 50);
                 ImGui::TextWrapped("%s", errmsg.c_str());
                 ImGui::PopItemWidth();
-                ImGui::SameLine();
+                ImGui::SameLine(ImGui::GetWindowWidth() - 50);
                 if (ImGui::Button("Clear##1"))
                     err = false;
             }
             ImGui::EndChild();
         }
+        ImGui::SameLine();
         {
-            ImGui::BeginChild("Motor Control", ImVec2(-1, 100), ImGuiWindowFlags_None | ImGuiWindowFlags_ChildWindow);
+            ImGui::BeginChild("Motor Control", ImVec2(-1, 150), ImGuiWindowFlags_None | ImGuiWindowFlags_ChildWindow);
             static std::string errmsg = "";
             static bool err = false;
             static bool afms_ready = false;
@@ -266,8 +267,11 @@ int main(int, char **)
             static Adafruit::MotorShield *afms = nullptr;
             static Adafruit::StepperMotor *mot = nullptr;
             static int bus = 1, address = 0x60, port = 0, stp_rev = 200;
+            static char addrstr[50] = "0x60";
             const char *portlist[]= {"1", "2"};
             static float speed = 0.1; // motor speed in rpm
+            static int steps = 200; // number of steps to take
+            static Adafruit::MotorDir dir = Adafruit::MotorDir::FORWARD;
             static Adafruit::MotorStyle style = Adafruit::MotorStyle::MICROSTEP;
             static Adafruit::MicroSteps msteps = Adafruit::MicroSteps::STEP64;
             if (mot != nullptr)
@@ -277,6 +281,7 @@ int main(int, char **)
             ImGui::SetNextItemWidth(ImGui::GetWindowContentRegionWidth() - 100); // create the table
             if (ImGui::BeginTable("##split_add_num", 4, ImGuiTableFlags_None))
             {
+                ImGui::TableNextColumn();
                 ImGui::Text("I2C Bus");
                 ImGui::TableNextColumn();
                 ImGui::Text("Address");
@@ -291,8 +296,9 @@ int main(int, char **)
                         bus = 0;
                 }
                 ImGui::TableNextColumn();
-                if (ImGui::InputInt("##i2caddr", &address, 0, 0, afms_ready ? ImGuiInputTextFlags_ReadOnly : ImGuiInputTextFlags_EnterReturnsTrue))
+                if (ImGui::InputText("##i2caddr", addrstr, afms_ready ? ImGuiInputTextFlags_ReadOnly : ImGuiInputTextFlags_EnterReturnsTrue))
                 {
+                    address = strtol(addrstr, NULL, 16);
                     if (address < 7)
                         address = 7;
                     if (address > 128)
@@ -308,8 +314,9 @@ int main(int, char **)
                     if (stp_rev > 400)
                         stp_rev = 400;
                 }
+                ImGui::EndTable();
             }
-            ImGui::SameLine();
+            // ImGui::SameLine();
             if (!moving && !afms_ready) // can open afms
             {
                 ImGui::PushStyleColor(0, ImVec4(0, 1, 0, 1));
@@ -368,7 +375,7 @@ int main(int, char **)
                 ImGui::PushItemWidth(ImGui::GetWindowContentRegionWidth() - 50);
                 ImGui::TextWrapped("%s", errmsg.c_str());
                 ImGui::PopItemWidth();
-                ImGui::SameLine();
+                ImGui::SameLine(ImGui::GetWindowWidth() - 50);
                 if (ImGui::Button("Clear##2"))
                     err = false;
             }

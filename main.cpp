@@ -12,6 +12,7 @@
 #include "backend/imgui_impl_opengl2.h"
 #include "implot/implot.h"
 #include "SerEncoder.hpp"
+#include "Adafruit/MotorShield.hpp"
 #include <stdio.h>
 #define eprintf(str, ...)                                                         \
     {                                                                             \
@@ -243,6 +244,7 @@ int main(int, char **)
                 }
             }
             ImGui::PopItemWidth();
+            ImGui::Separator();
             if (err)
             {
                 ImGui::PushItemWidth(ImGui::GetWindowContentRegionWidth() - 50);
@@ -250,6 +252,124 @@ int main(int, char **)
                 ImGui::PopItemWidth();
                 ImGui::SameLine();
                 if (ImGui::Button("Clear##1"))
+                    err = false;
+            }
+            ImGui::EndChild();
+        }
+        {
+            ImGui::BeginChild("Motor Control", ImVec2(-1, 100), ImGuiWindowFlags_None | ImGuiWindowFlags_ChildWindow);
+            static std::string errmsg = "";
+            static bool err = false;
+            static bool afms_ready = false;
+            static bool motor_ready = false;
+            static bool moving = false;
+            static Adafruit::MotorShield *afms = nullptr;
+            static Adafruit::StepperMotor *mot = nullptr;
+            static int bus = 1, address = 0x60, port = 0, stp_rev = 200;
+            const char *portlist[]= {"1", "2"};
+            static float speed = 0.1; // motor speed in rpm
+            static Adafruit::MotorStyle style = Adafruit::MotorStyle::MICROSTEP;
+            static Adafruit::MicroSteps msteps = Adafruit::MicroSteps::STEP64;
+            if (mot != nullptr)
+            {
+                moving = mot->isMoving();
+            }
+            ImGui::SetNextItemWidth(ImGui::GetWindowContentRegionWidth() - 100); // create the table
+            if (ImGui::BeginTable("##split_add_num", 4, ImGuiTableFlags_None))
+            {
+                ImGui::Text("I2C Bus");
+                ImGui::TableNextColumn();
+                ImGui::Text("Address");
+                ImGui::TableNextColumn();
+                ImGui::Text("Port");
+                ImGui::TableNextColumn();
+                ImGui::Text("Steps/rev");
+                ImGui::TableNextColumn();
+                if (ImGui::InputInt("##i2cbus", &bus, 0, 0, afms_ready ? ImGuiInputTextFlags_ReadOnly : ImGuiInputTextFlags_EnterReturnsTrue))
+                {
+                    if (bus < 0)
+                        bus = 0;
+                }
+                ImGui::TableNextColumn();
+                if (ImGui::InputInt("##i2caddr", &address, 0, 0, afms_ready ? ImGuiInputTextFlags_ReadOnly : ImGuiInputTextFlags_EnterReturnsTrue))
+                {
+                    if (address < 7)
+                        address = 7;
+                    if (address > 128)
+                        address = 128;
+                }
+                ImGui::TableNextColumn();
+                ImGui::Combo("##portsel", &port, portlist, IM_ARRAYSIZE(portlist));
+                ImGui::TableNextColumn();
+                if (ImGui::InputInt("##stepsperrev", &stp_rev, 0, 0, afms_ready ? ImGuiInputTextFlags_ReadOnly : ImGuiInputTextFlags_EnterReturnsTrue))
+                {
+                    if (stp_rev < 0)
+                        stp_rev = 50;
+                    if (stp_rev > 400)
+                        stp_rev = 400;
+                }
+            }
+            ImGui::SameLine();
+            if (!moving && !afms_ready) // can open afms
+            {
+                ImGui::PushStyleColor(0, ImVec4(0, 1, 0, 1));
+                if (ImGui::Button("Initialize"))
+                {
+                    try
+                    {
+                        afms = new Adafruit::MotorShield(address, bus);
+                        afms->begin();
+                        mot = afms->getStepper(stp_rev, port + 1, msteps);
+                    }
+                    catch(const std::exception& e)
+                    {
+                        errmsg = e.what();
+                        err = true;
+                        if (afms != nullptr)
+                        {
+                            delete afms;
+                            afms = nullptr;
+                        }
+                        if (mot != nullptr)
+                        {
+                            mot = nullptr;
+                        }
+                    }
+                    if (afms != nullptr)
+                    {
+                        afms_ready = true;
+                    }
+                }
+                ImGui::PopStyleColor();
+            }
+            else if (!moving) // can close afms
+            {
+                ImGui::PushStyleColor(0, ImVec4(0.1, 1, 0.9, 1));
+                if (ImGui::Button("Disconnect"))
+                {
+                    delete afms;
+                    afms = nullptr;
+                    afms_ready = false;
+                }
+                ImGui::PopStyleColor();
+            }
+            else // button disabled
+            {
+                ImGui::PushStyleColor(0, ImVec4(0.5, 0.5, 0.5, 1));
+                ImGui::Button("Disconnect");
+                ImGui::PopStyleColor();
+            }
+            ImGui::Separator();
+            // motor control
+
+            ImGui::Separator();
+            if (err)
+            {
+                ImGui::PushItemWidth(ImGui::GetWindowContentRegionWidth() - 50);
+                ImGui::TextWrapped("%s", errmsg.c_str());
+                ImGui::PopItemWidth();
+                ImGui::SameLine();
+                if (ImGui::Button("Clear##2"))
                     err = false;
             }
             ImGui::EndChild();

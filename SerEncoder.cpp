@@ -134,9 +134,10 @@ void SerEncoder::getData(uint64_t &ts, int &oval, SerEncoder_Flags &flag)
     flag.val <<= 1;
     val >>= 1;
     flag.val |= val & 0x1; // quadrature error
-    oval = data18 ? val & 0x7fffe : val & 0xffffe; // data bits
-    val >>= data18 ? 19 : 20;
+    flag.val <<= 1;
     val >>= 1;
+    oval = data18 ? val & 0x3ffff : val & 0x7ffff; // data bits
+    val >>= data18 ? 19 : 20;
     flag.val |= val & 0x1; // va decoder status
 }
 

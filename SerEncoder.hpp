@@ -27,12 +27,12 @@ typedef union
 {
     struct __attribute__((packed))
     {
-        uint8_t tz : 1;     // trailing zero
-        uint8_t parity : 1; // parity bit
-        uint8_t de : 1;     // va decoder error
-        uint8_t sqw : 1;    // signal quality watchdog
-        uint8_t qe : 1;     // quadrature error
         uint8_t sta : 1;    // va decoder status
+        uint8_t qe : 1;     // quadrature error
+        uint8_t sqw : 1;    // signal quality watchdog
+        uint8_t de : 1;     // va decoder error
+        uint8_t parity : 1; // parity bit
+        uint8_t tz : 1;     // trailing zero
         uint8_t unused : 2;
     };
     uint8_t val;

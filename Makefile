@@ -17,7 +17,7 @@ UNAME_S := $(shell uname -s)
 
 NPROCS := 1
 EDCFLAGS+= -I clkgen/include -I Adafruit/ -I i2cbus/ -I include/ -I ./ -Wall -O2 -std=gnu11 -I libs/gl3w -DIMGUI_IMPL_OPENGL_LOADER_GL3W
-CXXFLAGS:= -I clkgen/include -I Adafruit/ -I i2cbus/ -I include/ -I ./imgui/include -I ./ -Wall -O2 -fpermissive -std=gnu++11 -I libs/gl3w -DIMGUI_IMPL_OPENGL_LOADER_GL3W $(CXXFLAGS)
+CXXFLAGS:= -I clkgen/include -I Adafruit/ -I i2cbus/ -I include/ -I ./imgui/include -I ./ -Wall -Wno-narrowing -O2 -fpermissive -std=gnu++11 -I libs/gl3w -DIMGUI_IMPL_OPENGL_LOADER_GL3W $(CXXFLAGS)
 LIBS = -lpthread -lm
 
 ifeq ($(UNAME_S), Linux) #LINUX

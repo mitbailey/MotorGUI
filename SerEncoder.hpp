@@ -41,7 +41,7 @@ typedef union
 class SerEncoder
 {
 public:
-    SerEncoder(const char *name = (const char *)"/dev/ttyUSB0", bool StoreData = false, bool data18 = false);
+    SerEncoder(const char *name = (const char *)"/dev/ttyUSB0", bool StoreData = false, const char *dataFilePrefix = NULL, bool data18 = false);
     ~SerEncoder();
     bool hasData() const;
     uint64_t dataCount() const;
@@ -58,6 +58,7 @@ private:
     int val;
     uint64_t count;
     bool data18;
+    char *dFilePrefix;
 };
 
 #endif

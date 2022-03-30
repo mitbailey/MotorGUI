@@ -1,6 +1,8 @@
 #include "SerEncoder.hpp"
 
-SerEncoder::SerEncoder(const char *name, bool StoreData, bool data18)
+static char *defaultPrefix = (char *) "encoder";
+
+SerEncoder::SerEncoder(const char *name, bool StoreData, const char *dataFilePrefix, bool data18)
 {
     if (name == NULL || name == nullptr)
         throw std::runtime_error("Serial device name NULL");
@@ -62,7 +64,10 @@ SerEncoder::SerEncoder(const char *name, bool StoreData, bool data18)
         throw std::runtime_error("Could not read serial number");
     }
     printf("%s: Serial number %s\n", __func__, buf);
-
+    if (dataFilePrefix != NULL && dataFilePrefix != nullptr)
+        dFilePrefix = (char *)dataFilePrefix;
+    else
+        dFilePrefix = defaultPrefix;
     thr = std::thread(Acquisition, this);
     thr.detach();
     sleep(1);
@@ -121,8 +126,11 @@ void SerEncoder::Acquisition(void *_in)
     SerEncoder *in = (SerEncoder *)_in;
     if (in->store)
     {
-        std::string fname = "./data_" + std::to_string(get_ts()) + ".txt";
-        in->fp = fopen(fname.c_str(), "w");
+        char fname[128];
+        time_t t = time(NULL);
+        struct tm tm = *localtime(&t);
+        snprintf(fname, sizeof(fname), "./%s_%04d%02d%02d_%02d%02d%02d.txt", in->dFilePrefix, tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
+        in->fp = fopen(fname, "w");
     }
     char buf[50];
     memset(buf, 0x0, sizeof(buf));

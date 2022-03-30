@@ -146,7 +146,7 @@ int main(int, char **)
     glfwSetErrorCallback(glfw_error_callback);
     if (!glfwInit())
         return 1;
-    static int winx = 720, winy = 720;
+    static int winx = 800, winy = 640;
     GLFWwindow *window = glfwCreateWindow(winx, winy, "Stepper Motor Testing Utility", NULL, NULL);
     if (window == NULL)
         return 1;
@@ -201,18 +201,24 @@ int main(int, char **)
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
-        ImGui::SetNextWindowPos(ImVec2(0,0), ImGuiCond_Always);
+        ImGui::SetNextWindowPos(ImVec2(0, 0), ImGuiCond_Always);
         glfwGetWindowSize(window, &winx, &winy);
         ImGui::SetNextWindowSize(ImVec2(winx, winy), ImGuiCond_Always);
-        ImGui::Begin("Control Panel");
+        ImGui::Begin("Control Panel", NULL, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar);
         ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 5.0f);
         {
-            ImGui::BeginChild("Position Acquisition", ImVec2(ImGui::GetWindowContentRegionWidth() * 0.5f, 150), ImGuiWindowFlags_None | ImGuiWindowFlags_ChildWindow);
+            ImGui::BeginChild("Position Acquisition", ImVec2(ImGui::GetWindowContentRegionWidth() * 0.36f, 220), ImGuiWindowFlags_None | ImGuiWindowFlags_ChildWindow);
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0, 0.6, 0.6, 1));
+            ImGui::Text("Encoder Control");
+            ImGui::PopStyleColor();
+            ImGui::Separator();
             static bool ser_running = false;
             static char ser_name[50] = "/dev/ttyUSB0";
+            static char save_file[20] = "encoder";
             static std::string errmsg = "";
             static bool err = false;
-            ImGui::InputText("Serial Device", ser_name, IM_ARRAYSIZE(ser_name), ser_running ? ImGuiInputTextFlags_ReadOnly : ImGuiInputTextFlags_AutoSelectAll);
+            ImGui::InputText("Serial Port", ser_name, IM_ARRAYSIZE(ser_name), ser_running ? ImGuiInputTextFlags_ReadOnly : ImGuiInputTextFlags_AutoSelectAll);
+            ImGui::InputText("Save File", save_file, IM_ARRAYSIZE(save_file), ser_running ? ImGuiInputTextFlags_ReadOnly : ImGuiInputTextFlags_AutoSelectAll);
             static bool ser_save = false;
             ImGui::Checkbox("Save Data##1", &ser_save);
             ImGui::SameLine(ImGui::GetWindowWidth() - 140);
@@ -258,19 +264,20 @@ int main(int, char **)
         }
         ImGui::SameLine();
         {
-            ImGui::BeginChild("Motor Control", ImVec2(-1, 150), ImGuiWindowFlags_None | ImGuiWindowFlags_ChildWindow);
+            ImGui::BeginChild("Motor Control", ImVec2(-1, 220), ImGuiWindowFlags_None | ImGuiWindowFlags_ChildWindow);
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0, 0.6, 0.6, 1));
+            ImGui::Text("Motor Control");
+            ImGui::PopStyleColor();
+            ImGui::Separator();
             static std::string errmsg = "";
             static bool err = false;
             static bool afms_ready = false;
-            static bool motor_ready = false;
             static bool moving = false;
             static Adafruit::MotorShield *afms = nullptr;
             static Adafruit::StepperMotor *mot = nullptr;
             static int bus = 1, address = 0x60, port = 0, stp_rev = 200;
             static char addrstr[50] = "0x60";
-            const char *portlist[]= {"1", "2"};
-            static float speed = 0.1; // motor speed in rpm
-            static int steps = 200; // number of steps to take
+            const char *portlist[] = {(char *)"1", (char *)"2"};
             static Adafruit::MotorDir dir = Adafruit::MotorDir::FORWARD;
             static Adafruit::MotorStyle style = Adafruit::MotorStyle::MICROSTEP;
             static Adafruit::MicroSteps msteps = Adafruit::MicroSteps::STEP64;
@@ -314,12 +321,14 @@ int main(int, char **)
                     if (stp_rev > 400)
                         stp_rev = 400;
                 }
-                ImGui::EndTable();
-            }
-            // ImGui::SameLine();
-            if (!moving && !afms_ready) // can open afms
+                ImGui::TableNextColumn();
+                ImGui::TableNextColumn();
+                ImGui::TableNextColumn();
+                ImGui::TableNextColumn();
+
+                if (!moving && !afms_ready) // can open afms
             {
-                ImGui::PushStyleColor(0, ImVec4(0, 1, 0, 1));
+                ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0.6, 0, 1));
                 if (ImGui::Button("Initialize"))
                 {
                     try
@@ -328,7 +337,7 @@ int main(int, char **)
                         afms->begin();
                         mot = afms->getStepper(stp_rev, port + 1, msteps);
                     }
-                    catch(const std::exception& e)
+                    catch (const std::exception &e)
                     {
                         errmsg = e.what();
                         err = true;
@@ -351,7 +360,7 @@ int main(int, char **)
             }
             else if (!moving) // can close afms
             {
-                ImGui::PushStyleColor(0, ImVec4(0.1, 1, 0.9, 1));
+                ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.066, 0.66, 0.6, 1));
                 if (ImGui::Button("Disconnect"))
                 {
                     delete afms;
@@ -362,13 +371,184 @@ int main(int, char **)
             }
             else // button disabled
             {
-                ImGui::PushStyleColor(0, ImVec4(0.5, 0.5, 0.5, 1));
+                ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3, 0.3, 0.3, 1));
                 ImGui::Button("Disconnect");
                 ImGui::PopStyleColor();
             }
+                ImGui::EndTable();
+            }
             ImGui::Separator();
             // motor control
+            {
+                static int nsteps = 0;
+                static int motStyle = 2; // default
+                static char *motStyleStr[] = {(char *) "Single", (char *) "Double", (char *) "Microstep"};
+                static int motDir = 0; // default
+                static char *motDirStr[] = {(char *) "Forward", (char *) "Backward"};
+                static int nMicroSteps = 3; // default
+                static char *microStepStr[] = {(char *) "8", (char *)"16", (char *) "32", (char *) "64", (char *) "128", (char *) "256", (char *) "512"};
+                static float speed = 0.1; // motor speed in rpm
+                bool inputReady = !moving && afms_ready;
+                if (ImGui::BeginTable("##split_mot_props", 4, ImGuiTableFlags_None))
+                {
+                    ImGui::TableNextColumn();
+                    ImGui::Text("Steps");
+                    ImGui::TableNextColumn();
+                    ImGui::Text("Direction");
+                    ImGui::TableNextColumn();
+                    ImGui::Text("Style");
+                    ImGui::TableNextColumn();
+                    ImGui::Text("Microsteps");
 
+                    ImGui::TableNextColumn();
+                    if (ImGui::InputInt("##NumSteps", &nsteps, 0, 0, inputReady ? ImGuiInputTextFlags_EnterReturnsTrue : ImGuiInputTextFlags_ReadOnly))
+                    {
+                        if (nsteps < 0)
+                            nsteps = 0;
+                        if (nsteps > UINT16_MAX)
+                            nsteps = 0;
+                    }
+
+                    ImGui::TableNextColumn();
+                    static int _motDir;
+                    _motDir = motDir;
+                    if (ImGui::Combo("##MotorDir", &motDir, motDirStr, IM_ARRAYSIZE(motDirStr)))
+                    {
+                        if (!inputReady)
+                        {
+                            motDir = _motDir;
+                        }
+                        if (motDir == 0)
+                            dir = Adafruit::MotorDir::FORWARD;
+                        else if (motDir == 1)
+                            dir = Adafruit::MotorDir::BACKWARD;
+                        else
+                        {
+                            dir = Adafruit::MotorDir::FORWARD;
+                            motDir = 0;
+                        }
+                    }
+
+                    ImGui::TableNextColumn();
+                    static int _motStyle;
+                    _motStyle = motStyle;
+                    if (ImGui::Combo("##MotorStyle", &motStyle, motStyleStr, IM_ARRAYSIZE(motStyleStr)))
+                    {
+                        if (!inputReady)
+                        {
+                            motStyle = _motStyle;
+                        }
+                        if (motStyle == 0)
+                        {
+                            style = Adafruit::MotorStyle::SINGLE;
+                        }
+                        else if (motStyle == 1)
+                        {
+                            style = Adafruit::MotorStyle::DOUBLE;
+                        }
+                        else if (motStyle == 2)
+                        {
+                            style = Adafruit::MotorStyle::MICROSTEP;
+                        }
+                        else
+                        {
+                            style = Adafruit::MotorStyle::MICROSTEP;
+                            motStyle = 2;
+                        }
+                    }
+
+                    ImGui::TableNextColumn();
+                    static int _nMicroSteps;
+                    _nMicroSteps = nMicroSteps;
+                    static bool microStepsApplied = false;
+                    if (ImGui::Combo("##MicroSteps", &nMicroSteps, microStepStr, IM_ARRAYSIZE(microStepStr)))
+                    {
+                        if (!inputReady)
+                        {
+                            nMicroSteps = _nMicroSteps;
+                        }
+                        switch (nMicroSteps)
+                        {
+                        case 0:
+                            msteps = Adafruit::MicroSteps::STEP8;
+                            break;
+                        case 1:
+                            msteps = Adafruit::MicroSteps::STEP16;
+                            break;
+                        case 2:
+                            msteps = Adafruit::MicroSteps::STEP32;
+                            break;
+                        case 3:
+                            msteps = Adafruit::MicroSteps::STEP64;
+                            break;
+                        case 4:
+                            msteps = Adafruit::MicroSteps::STEP128;
+                            break;
+                        case 5:
+                            msteps = Adafruit::MicroSteps::STEP256;
+                            break;
+                        case 6:
+                            msteps = Adafruit::MicroSteps::STEP512;
+                            break;
+                        default:
+                            nMicroSteps = 3;
+                            msteps = Adafruit::MicroSteps::STEP64;
+                            break;
+                        }
+                        microStepsApplied = false;
+                    }
+                    if (microStepsApplied == false && inputReady)
+                    {
+                        mot->setStep(msteps);
+                        microStepsApplied = true;
+                    }
+                    ImGui::EndTable();
+                }
+                ImGui::PushItemWidth(150);
+                if (ImGui::InputFloat("Speed##mot", &speed, 0, 0, "%.4f", inputReady ? ImGuiInputTextFlags_EnterReturnsTrue : ImGuiInputTextFlags_ReadOnly))
+                {
+                    if (speed < 0)
+                        speed = 0.1;
+                    if (speed > 100)
+                        speed = 100;
+                }
+                ImGui::PopItemWidth();
+                ImGui::SameLine(ImGui::GetWindowContentRegionWidth() - 200);
+                static bool mot_save_data = true;
+                ImGui::Checkbox("Save Data", &mot_save_data);
+                ImGui::SameLine(ImGui::GetWindowContentRegionWidth() - 50);
+                if (!afms_ready && !moving)
+                {
+                    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3, 0.3, 0.3, 1));
+                    ImGui::Button("Start");
+                }
+                else if (afms_ready && !moving)
+                {
+                    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0.6, 0, 1));
+                    if (ImGui::Button("Start")) // start moving
+                    {
+                        try
+                        {
+                            mot->setSpeed(speed);
+                            mot->step(nsteps, dir, style, false);
+                        }
+                        catch (const std::exception &e)
+                        {
+                            errmsg = e.what();
+                            err = true;
+                        }
+                    }
+                }
+                else if (afms_ready && moving)
+                {
+                    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.6, 0, 0, 1));
+                    if (ImGui::Button("Stop"))
+                    {
+                        mot->stopMotor();
+                    }
+                }
+                ImGui::PopStyleColor();
+            }
             ImGui::Separator();
             if (err)
             {

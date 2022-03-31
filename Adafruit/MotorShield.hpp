@@ -227,7 +227,7 @@ namespace Adafruit
          * @param style Stepping style, can be SINGLE, DOUBLE, INTERLEAVE or MICROSTEP. SINGLE by default.
          * @param blocking Whether the step function blocks until stepping is complete. Set to true by default.
          */
-        void _Catchable step(uint16_t steps, MotorDir dir, MotorStyle style = SINGLE, bool blocking = true);
+        void _Catchable step(uint16_t steps, MotorDir dir, MotorStyle style = SINGLE, bool blocking = true, bool saveData = false, const char *fprefix = NULL);
 
         /**
          * @brief Move the stepper motor by one step. No delays implemented.
@@ -299,6 +299,7 @@ namespace Adafruit
         volatile sig_atomic_t *done;
         volatile bool moving;
         volatile bool stop;
+        FILE *savfp;
     };
 
     /**

@@ -2,6 +2,13 @@
 
 static char *defaultPrefix = (char *) "encoder";
 
+static inline uint64_t ts_now()
+{
+    struct timespec ts;
+    clock_gettime(CLOCK_REALTIME, &ts);
+    return (ts.tv_nsec + ts.tv_sec * 1000000000LLU);
+}
+
 SerEncoder::SerEncoder(const char *name, bool StoreData, const char *dataFilePrefix, bool data18)
 {
     if (name == NULL || name == nullptr)
@@ -246,7 +253,7 @@ void SerEncoder::Acquisition(void *_in)
         //     if (idx > (int) sizeof(buf) - 1)
         //         throw std::runtime_error("Buffer overflow on line " + std::to_string(__LINE__));
         // } while (c != '\r');
-        in->ts = get_ts();
+        in->ts = ts_now();
         // printf("%" PRIu64 ",%d\n", in->ts, in->val);
         in->count++;
         if (in->fp != NULL)

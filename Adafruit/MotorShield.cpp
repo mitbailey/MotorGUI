@@ -18,6 +18,8 @@
 #include "meb_print.h"
 #include <stdio.h>
 #include <math.h>
+#include <time.h>
+#include <inttypes.h>
 
 #include <algorithm>
 #include <thread>
@@ -33,6 +35,15 @@ void sigHandler(int sig)
     adafruit_motorshield_internal_done = 1;
 }
 #endif // _DOXYGEN_
+
+static char *fprefix_default = (char *) "motor";
+
+static inline uint64_t ts_now()
+{
+    struct timespec ts;
+    clock_gettime(CLOCK_REALTIME, &ts);
+    return (ts.tv_nsec + ts.tv_sec * 1000000000LLU);
+}
 
 namespace Adafruit
 {
@@ -443,6 +454,7 @@ namespace Adafruit
         usperstep = 0;
         stop = false;
         moving = false;
+        savfp = NULL;
     }
 
     void StepperMotor::release(void)
@@ -503,10 +515,23 @@ namespace Adafruit
         return false;
     }
 
-    void _Catchable StepperMotor::step(uint16_t steps, MotorDir dir, MotorStyle style, bool blocking)
+    void _Catchable StepperMotor::step(uint16_t steps, MotorDir dir, MotorStyle style, bool blocking, bool saveData, const char *fprefix)
     {
         if (usperstep == 0)
             throw std::runtime_error("RPM has to be set before stepping the motor.");
+        if (saveData)
+        {
+            char fname[128];
+            char *afpref;
+            if (fprefix == NULL)
+                afpref = fprefix_default;
+            else
+                afpref = (char *) fprefix;
+            time_t t = time(NULL);
+            struct tm tm = *localtime(&t);
+            snprintf(fname, sizeof(fname), "./%s_%04d%02d%02d_%02d%02d%02d.txt", afpref, tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
+            savfp = fopen(fname, "w");
+        }
         if (blocking)
         {
             std::unique_lock<std::mutex> lock(cs);
@@ -762,6 +787,8 @@ namespace Adafruit
     {
         struct StepperMotorTimerData *data = (struct StepperMotorTimerData *)data_;
         StepperMotor *_this = data->_this;
+        if (_this->savfp != NULL)
+            fprintf(_this->savfp, "%" PRIu64 "\n", ts_now());
         // if at odd microstep we HAVE to step until we reach an integral step
         if ((data->steps % data->msteps) && (data->style == MotorStyle::MICROSTEP))
         {
@@ -780,6 +807,12 @@ namespace Adafruit
         {
             _this->moving = false;
             _this->cond.notify_all();
+            if (_this->savfp)
+            {
+                fflush(_this->savfp);
+                fclose(_this->savfp);
+                _this->savfp = NULL;
+            }
         }
     }
     void StepperMotor::stepThreadFn(StepperMotor *mot, uint16_t steps, MotorDir dir, MotorStyle style)

@@ -186,9 +186,17 @@ int main(int, char **)
     // IM_ASSERT(font != NULL);
 
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
+    bool force_stop = false;
+    bool ser_running = false;
+    bool mot_save_data = false;
+    bool ser_save = false;
+    static int framectr = 0;
+
+
     // Main loop
     while (!glfwWindowShouldClose(window))
     {
+        framectr++;
         // Poll and handle events (inputs, window resize, etc.)
         // You can read the io.WantCaptureMouse, io.WantCaptureKeyboard flags to tell if dear imgui wants to use your inputs.
         // - When io.WantCaptureMouse is true, do not dispatch mouse input data to your main application.
@@ -212,14 +220,12 @@ int main(int, char **)
             ImGui::Text("Encoder Control");
             ImGui::PopStyleColor();
             ImGui::Separator();
-            static bool ser_running = false;
             static char ser_name[50] = "/dev/ttyUSB0";
             static char save_file[20] = "encoder";
             static std::string errmsg = "";
             static bool err = false;
             ImGui::InputText("Serial Port", ser_name, IM_ARRAYSIZE(ser_name), ser_running ? ImGuiInputTextFlags_ReadOnly : ImGuiInputTextFlags_AutoSelectAll);
             ImGui::InputText("Save File", save_file, IM_ARRAYSIZE(save_file), ser_running ? ImGuiInputTextFlags_ReadOnly : ImGuiInputTextFlags_AutoSelectAll);
-            static bool ser_save = false;
             ImGui::Checkbox("Save Data##1", &ser_save);
             ImGui::SameLine(ImGui::GetWindowWidth() - 140);
             ImGui::PushItemWidth(-FLT_MIN);
@@ -244,9 +250,11 @@ int main(int, char **)
             else
             {
                 ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.65, 0.0, 0.0, 1));
-                if (ImGui::Button("Stop Acquisition"))
+                if (ImGui::Button("Stop Acquisition") || force_stop)
                 {
-                    delete enc;
+                    force_stop = false;
+                    if (enc != nullptr)
+                        delete enc;
                     enc = nullptr;
                     ser_running = false;
                 }
@@ -391,7 +399,10 @@ int main(int, char **)
                 static int nMicroSteps = 3; // default
                 static char *microStepStr[] = {(char *)"8", (char *)"16", (char *)"32", (char *)"64", (char *)"128", (char *)"256", (char *)"512"};
                 static float speed = 0.1; // motor speed in rpm
+                static int mot_started = 0;
                 bool inputReady = !moving && afms_ready;
+                if ((mot_started - framectr) > 100 && !moving && ser_save && mot_save_data) // after 100 frames of pressing start
+                    force_stop = true;
                 if (ImGui::BeginTable("##split_mot_props", 4, ImGuiTableFlags_None))
                 {
                     ImGui::TableNextColumn();
@@ -522,7 +533,6 @@ int main(int, char **)
                 ImGui::InputText("Prefix##mot", motFilePref, IM_ARRAYSIZE(motFilePref), inputReady ? ImGuiInputTextFlags_EnterReturnsTrue : ImGuiInputTextFlags_ReadOnly);
                 ImGui::PopItemWidth();
                 ImGui::SameLine(ImGui::GetWindowContentRegionWidth() - 160);
-                static bool mot_save_data = false;
                 ImGui::Checkbox("Save Data", &mot_save_data);
                 ImGui::SameLine(ImGui::GetWindowContentRegionWidth() - 50);
                 if (!afms_ready && !moving)
@@ -545,6 +555,7 @@ int main(int, char **)
                             errmsg = e.what();
                             err = true;
                         }
+                        mot_started = framectr;
                     }
                 }
                 else if (afms_ready && moving)

@@ -225,6 +225,7 @@ int main(int, char **)
             ImGui::PushItemWidth(-FLT_MIN);
             if (!ser_running)
             {
+                ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0.65, 0, 1));
                 if (ImGui::Button("Start Acquisition"))
                 {
                     try
@@ -242,6 +243,7 @@ int main(int, char **)
             }
             else
             {
+                ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.65, 0.0, 0.0, 1));
                 if (ImGui::Button("Stop Acquisition"))
                 {
                     delete enc;
@@ -249,6 +251,7 @@ int main(int, char **)
                     ser_running = false;
                 }
             }
+            ImGui::PopStyleColor();
             ImGui::PopItemWidth();
             ImGui::Separator();
             if (err)
@@ -327,54 +330,54 @@ int main(int, char **)
                 ImGui::TableNextColumn();
 
                 if (!moving && !afms_ready) // can open afms
-            {
-                ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0.6, 0, 1));
-                if (ImGui::Button("Initialize"))
                 {
-                    try
+                    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0.6, 0, 1));
+                    if (ImGui::Button("Initialize"))
                     {
-                        afms = new Adafruit::MotorShield(address, bus);
-                        afms->begin();
-                        mot = afms->getStepper(stp_rev, port + 1, msteps);
-                    }
-                    catch (const std::exception &e)
-                    {
-                        errmsg = e.what();
-                        err = true;
+                        try
+                        {
+                            afms = new Adafruit::MotorShield(address, bus);
+                            afms->begin();
+                            mot = afms->getStepper(stp_rev, port + 1, msteps);
+                        }
+                        catch (const std::exception &e)
+                        {
+                            errmsg = e.what();
+                            err = true;
+                            if (afms != nullptr)
+                            {
+                                delete afms;
+                                afms = nullptr;
+                            }
+                            if (mot != nullptr)
+                            {
+                                mot = nullptr;
+                            }
+                        }
                         if (afms != nullptr)
                         {
-                            delete afms;
-                            afms = nullptr;
-                        }
-                        if (mot != nullptr)
-                        {
-                            mot = nullptr;
+                            afms_ready = true;
                         }
                     }
-                    if (afms != nullptr)
-                    {
-                        afms_ready = true;
-                    }
+                    ImGui::PopStyleColor();
                 }
-                ImGui::PopStyleColor();
-            }
-            else if (!moving) // can close afms
-            {
-                ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.066, 0.66, 0.6, 1));
-                if (ImGui::Button("Disconnect"))
+                else if (!moving) // can close afms
                 {
-                    delete afms;
-                    afms = nullptr;
-                    afms_ready = false;
+                    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.066, 0.66, 0.6, 1));
+                    if (ImGui::Button("Disconnect"))
+                    {
+                        delete afms;
+                        afms = nullptr;
+                        afms_ready = false;
+                    }
+                    ImGui::PopStyleColor();
                 }
-                ImGui::PopStyleColor();
-            }
-            else // button disabled
-            {
-                ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3, 0.3, 0.3, 1));
-                ImGui::Button("Disconnect");
-                ImGui::PopStyleColor();
-            }
+                else // button disabled
+                {
+                    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3, 0.3, 0.3, 1));
+                    ImGui::Button("Disconnect");
+                    ImGui::PopStyleColor();
+                }
                 ImGui::EndTable();
             }
             ImGui::Separator();
@@ -382,11 +385,11 @@ int main(int, char **)
             {
                 static int nsteps = 0;
                 static int motStyle = 2; // default
-                static char *motStyleStr[] = {(char *) "Single", (char *) "Double", (char *) "Microstep"};
+                static char *motStyleStr[] = {(char *)"Single", (char *)"Double", (char *)"Microstep"};
                 static int motDir = 0; // default
-                static char *motDirStr[] = {(char *) "Forward", (char *) "Backward"};
+                static char *motDirStr[] = {(char *)"Forward", (char *)"Backward"};
                 static int nMicroSteps = 3; // default
-                static char *microStepStr[] = {(char *) "8", (char *)"16", (char *) "32", (char *) "64", (char *) "128", (char *) "256", (char *) "512"};
+                static char *microStepStr[] = {(char *)"8", (char *)"16", (char *)"32", (char *)"64", (char *)"128", (char *)"256", (char *)"512"};
                 static float speed = 0.1; // motor speed in rpm
                 bool inputReady = !moving && afms_ready;
                 if (ImGui::BeginTable("##split_mot_props", 4, ImGuiTableFlags_None))
@@ -504,7 +507,7 @@ int main(int, char **)
                     }
                     ImGui::EndTable();
                 }
-                ImGui::PushItemWidth(150);
+                ImGui::PushItemWidth(80);
                 if (ImGui::InputFloat("Speed##mot", &speed, 0, 0, "%.4f", inputReady ? ImGuiInputTextFlags_EnterReturnsTrue : ImGuiInputTextFlags_ReadOnly))
                 {
                     if (speed < 0)
@@ -513,8 +516,13 @@ int main(int, char **)
                         speed = 100;
                 }
                 ImGui::PopItemWidth();
-                ImGui::SameLine(ImGui::GetWindowContentRegionWidth() - 200);
-                static bool mot_save_data = true;
+                ImGui::SameLine();
+                static char motFilePref[20] = "motor";
+                ImGui::PushItemWidth(100);
+                ImGui::InputText("Prefix##mot", motFilePref, IM_ARRAYSIZE(motFilePref), inputReady ? ImGuiInputTextFlags_EnterReturnsTrue : ImGuiInputTextFlags_ReadOnly);
+                ImGui::PopItemWidth();
+                ImGui::SameLine(ImGui::GetWindowContentRegionWidth() - 160);
+                static bool mot_save_data = false;
                 ImGui::Checkbox("Save Data", &mot_save_data);
                 ImGui::SameLine(ImGui::GetWindowContentRegionWidth() - 50);
                 if (!afms_ready && !moving)
@@ -530,7 +538,7 @@ int main(int, char **)
                         try
                         {
                             mot->setSpeed(speed);
-                            mot->step(nsteps, dir, style, false);
+                            mot->step(nsteps, dir, style, false, mot_save_data, motFilePref);
                         }
                         catch (const std::exception &e)
                         {

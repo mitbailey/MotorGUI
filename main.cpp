@@ -399,10 +399,14 @@ int main(int, char **)
                 static int nMicroSteps = 3; // default
                 static char *microStepStr[] = {(char *)"8", (char *)"16", (char *)"32", (char *)"64", (char *)"128", (char *)"256", (char *)"512"};
                 static float speed = 0.1; // motor speed in rpm
-                static int mot_started = 0;
+                static int mot_started = -1;
                 bool inputReady = !moving && afms_ready;
-                if ((mot_started - framectr) > 100 && !moving && ser_save && mot_save_data) // after 100 frames of pressing start
+                // printf("framectr: %d, mot_started: %d, dFrames: %d, >100 frames: %d, !moving: %d, ser_save: %d, mot_save_data: %d\n", framectr, mot_started, framectr - mot_started, (framectr - mot_started) > 100, !moving, ser_save, mot_save_data);
+                if ((framectr - mot_started) > 100 && !moving && ser_save && mot_save_data && mot_started >= 0) // after 100 frames of pressing start
+                {
                     force_stop = true;
+                    mot_started = -1; // We have to reset mot_started to -1, an invalid value, to indicate that we are not currently looking to turn off the acquisition. This stops the program from preventing any further acquiring after the first.
+                }
                 if (ImGui::BeginTable("##split_mot_props", 4, ImGuiTableFlags_None))
                 {
                     ImGui::TableNextColumn();

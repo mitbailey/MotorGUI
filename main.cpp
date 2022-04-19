@@ -192,6 +192,7 @@ int main(int, char **)
     bool ser_save = false;
     static int framectr = 0;
 
+    static Adafruit::StepperMotor *mot = nullptr;
 
     // Main loop
     while (!glfwWindowShouldClose(window))
@@ -257,6 +258,7 @@ int main(int, char **)
                         delete enc;
                     enc = nullptr;
                     ser_running = false;
+                    mot->release();
                 }
             }
             ImGui::PopStyleColor();
@@ -285,7 +287,6 @@ int main(int, char **)
             static bool afms_ready = false;
             static bool moving = false;
             static Adafruit::MotorShield *afms = nullptr;
-            static Adafruit::StepperMotor *mot = nullptr;
             static int bus = 1, address = 0x60, port = 0, stp_rev = 200;
             static char addrstr[50] = "0x60";
             const char *portlist[] = {(char *)"1", (char *)"2"};
@@ -568,6 +569,7 @@ int main(int, char **)
                     if (ImGui::Button("Stop"))
                     {
                         mot->stopMotor();
+                        mot->release();
                     }
                 }
                 ImGui::PopStyleColor();

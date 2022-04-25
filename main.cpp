@@ -186,10 +186,19 @@ int main(int, char **)
     // IM_ASSERT(font != NULL);
 
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
+    bool force_stop = false;
+    bool ser_running = false;
+    bool mot_save_data = false;
+    bool ser_save = false;
+    static int framectr = 0;
+
+    static Adafruit::StepperMotor *mot = nullptr;
+
     // Main loop
     bool encoder_acquisition_running = false;
     while (!glfwWindowShouldClose(window))
     {
+        framectr++;
         // Poll and handle events (inputs, window resize, etc.)
         // You can read the io.WantCaptureMouse, io.WantCaptureKeyboard flags to tell if dear imgui wants to use your inputs.
         // - When io.WantCaptureMouse is true, do not dispatch mouse input data to your main application.
@@ -213,14 +222,12 @@ int main(int, char **)
             ImGui::Text("Encoder Control");
             ImGui::PopStyleColor();
             ImGui::Separator();
-            // static bool encoder_acquisition_running = false;
             static char ser_name[50] = "/dev/ttyUSB0";
             static char save_file[20] = "encoder";
             static std::string errmsg = "";
             static bool err = false;
-            ImGui::InputText("Serial Port", ser_name, IM_ARRAYSIZE(ser_name), encoder_acquisition_running ? ImGuiInputTextFlags_ReadOnly : ImGuiInputTextFlags_AutoSelectAll);
-            ImGui::InputText("Save File", save_file, IM_ARRAYSIZE(save_file), encoder_acquisition_running ? ImGuiInputTextFlags_ReadOnly : ImGuiInputTextFlags_AutoSelectAll);
-            static bool ser_save = false;
+            ImGui::InputText("Serial Port", ser_name, IM_ARRAYSIZE(ser_name), ser_running ? ImGuiInputTextFlags_ReadOnly : ImGuiInputTextFlags_AutoSelectAll);
+            ImGui::InputText("Save File", save_file, IM_ARRAYSIZE(save_file), ser_running ? ImGuiInputTextFlags_ReadOnly : ImGuiInputTextFlags_AutoSelectAll);
             ImGui::Checkbox("Save Data##1", &ser_save);
             ImGui::SameLine(ImGui::GetWindowWidth() - 140);
             ImGui::PushItemWidth(-FLT_MIN);
@@ -245,11 +252,14 @@ int main(int, char **)
             else
             {
                 ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.65, 0.0, 0.0, 1));
-                if (ImGui::Button("Stop Acquisition"))
+                if (ImGui::Button("Stop Acquisition") || force_stop)
                 {
-                    delete enc;
+                    force_stop = false;
+                    if (enc != nullptr)
+                        delete enc;
                     enc = nullptr;
-                    encoder_acquisition_running = false;
+                    ser_running = false;
+                    mot->release();
                 }
             }
             ImGui::PopStyleColor();
@@ -278,7 +288,6 @@ int main(int, char **)
             static bool afms_ready = false;
             static bool moving = false;
             static Adafruit::MotorShield *afms = nullptr;
-            static Adafruit::StepperMotor *mot = nullptr;
             static int bus = 1, address = 0x60, port = 0, stp_rev = 200;
             static char addrstr[50] = "0x60";
             const char *portlist[] = {(char *)"1", (char *)"2"};
@@ -392,7 +401,14 @@ int main(int, char **)
                 static int nMicroSteps = 3; // default
                 static char *microStepStr[] = {(char *)"8", (char *)"16", (char *)"32", (char *)"64", (char *)"128", (char *)"256", (char *)"512"};
                 static float speed = 0.1; // motor speed in rpm
+                static int mot_started = -1;
                 bool inputReady = !moving && afms_ready;
+                // printf("framectr: %d, mot_started: %d, dFrames: %d, >100 frames: %d, !moving: %d, ser_save: %d, mot_save_data: %d\n", framectr, mot_started, framectr - mot_started, (framectr - mot_started) > 100, !moving, ser_save, mot_save_data);
+                if ((framectr - mot_started) > 100 && !moving && ser_save && mot_save_data && mot_started >= 0) // after 100 frames of pressing start
+                {
+                    force_stop = true;
+                    mot_started = -1; // We have to reset mot_started to -1, an invalid value, to indicate that we are not currently looking to turn off the acquisition. This stops the program from preventing any further acquiring after the first.
+                }
                 if (ImGui::BeginTable("##split_mot_props", 4, ImGuiTableFlags_None))
                 {
                     ImGui::TableNextColumn();
@@ -523,7 +539,6 @@ int main(int, char **)
                 ImGui::InputText("Prefix##mot", motFilePref, IM_ARRAYSIZE(motFilePref), inputReady ? ImGuiInputTextFlags_EnterReturnsTrue : ImGuiInputTextFlags_ReadOnly);
                 ImGui::PopItemWidth();
                 ImGui::SameLine(ImGui::GetWindowContentRegionWidth() - 160);
-                static bool mot_save_data = false;
                 ImGui::Checkbox("Save Data", &mot_save_data);
                 ImGui::SameLine(ImGui::GetWindowContentRegionWidth() - 50);
                 if (!afms_ready && !moving)
@@ -546,6 +561,7 @@ int main(int, char **)
                             errmsg = e.what();
                             err = true;
                         }
+                        mot_started = framectr;
                     }
                 }
                 else if (afms_ready && moving)
@@ -554,6 +570,7 @@ int main(int, char **)
                     if (ImGui::Button("Stop"))
                     {
                         mot->stopMotor();
+                        mot->release();
                     }
                 }
                 ImGui::PopStyleColor();

@@ -32,7 +32,7 @@
 
 #include <unistd.h>
 #include <stdint.h>
-#include <signal.h>
+// #include <signal.h>
 #include "i2cbus/i2cbus.h"
 #include "clkgen.h"
 
@@ -296,7 +296,7 @@ namespace Adafruit
         uint16_t currentstep;
         MotorShield *MC;
         bool initd;
-        volatile sig_atomic_t *done;
+        // volatile sig_atomic_t *done;
         volatile bool moving;
         volatile bool stop;
         FILE *savfp;

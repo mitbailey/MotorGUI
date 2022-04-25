@@ -187,6 +187,7 @@ int main(int, char **)
 
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
     // Main loop
+    bool encoder_acquisition_running = false;
     while (!glfwWindowShouldClose(window))
     {
         // Poll and handle events (inputs, window resize, etc.)
@@ -212,18 +213,18 @@ int main(int, char **)
             ImGui::Text("Encoder Control");
             ImGui::PopStyleColor();
             ImGui::Separator();
-            static bool ser_running = false;
+            // static bool encoder_acquisition_running = false;
             static char ser_name[50] = "/dev/ttyUSB0";
             static char save_file[20] = "encoder";
             static std::string errmsg = "";
             static bool err = false;
-            ImGui::InputText("Serial Port", ser_name, IM_ARRAYSIZE(ser_name), ser_running ? ImGuiInputTextFlags_ReadOnly : ImGuiInputTextFlags_AutoSelectAll);
-            ImGui::InputText("Save File", save_file, IM_ARRAYSIZE(save_file), ser_running ? ImGuiInputTextFlags_ReadOnly : ImGuiInputTextFlags_AutoSelectAll);
+            ImGui::InputText("Serial Port", ser_name, IM_ARRAYSIZE(ser_name), encoder_acquisition_running ? ImGuiInputTextFlags_ReadOnly : ImGuiInputTextFlags_AutoSelectAll);
+            ImGui::InputText("Save File", save_file, IM_ARRAYSIZE(save_file), encoder_acquisition_running ? ImGuiInputTextFlags_ReadOnly : ImGuiInputTextFlags_AutoSelectAll);
             static bool ser_save = false;
             ImGui::Checkbox("Save Data##1", &ser_save);
             ImGui::SameLine(ImGui::GetWindowWidth() - 140);
             ImGui::PushItemWidth(-FLT_MIN);
-            if (!ser_running)
+            if (!encoder_acquisition_running)
             {
                 ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0.65, 0, 1));
                 if (ImGui::Button("Start Acquisition"))
@@ -238,7 +239,7 @@ int main(int, char **)
                         err = true;
                     }
                     if (enc != nullptr)
-                        ser_running = true;
+                        encoder_acquisition_running = true;
                 }
             }
             else
@@ -248,7 +249,7 @@ int main(int, char **)
                 {
                     delete enc;
                     enc = nullptr;
-                    ser_running = false;
+                    encoder_acquisition_running = false;
                 }
             }
             ImGui::PopStyleColor();

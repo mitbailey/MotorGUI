@@ -19,20 +19,37 @@
 #include <stdio.h>
 #include <math.h>
 #include <time.h>
+#include <signal.h>
 #include <inttypes.h>
 
 #include <algorithm>
 #include <thread>
+#include <vector>
 
 #ifndef _DOXYGEN_
 #define LOW 0
 #define HIGH 1
 
-volatile sig_atomic_t adafruit_motorshield_internal_done = 0;
+// volatile sig_atomic_t adafruit_motorshield_internal_done = 0;
 
-void sigHandler(int sig)
+static std::vector<void *> lib_steppers;
+static std::vector<void *> lib_dcmotors;
+static std::mutex handler_lock;
+
+static void sigHandler(int sig)
 {
-    adafruit_motorshield_internal_done = 1;
+    std::lock_guard<std::mutex>lock(handler_lock);
+    for (void *_stepper : lib_steppers)
+    {
+        Adafruit::StepperMotor *stepper = (Adafruit::StepperMotor *)_stepper;
+        stepper->stopMotor();
+    }
+
+    for (void *_dcmot : lib_dcmotors)
+    {
+        Adafruit::DCMotor *motor = (Adafruit::DCMotor *)_dcmot;
+        motor->fullOff();
+    }
 }
 #endif // _DOXYGEN_
 
@@ -192,12 +209,38 @@ namespace Adafruit
 
     MotorShield::~MotorShield()
     {
+        std::lock_guard<std::mutex>lock(handler_lock);
         for (int i = 0; i < 4; i++)
+        {
+            // remove motor from list of vectors for signal handler
+            for (std::vector<void *>::iterator it = lib_dcmotors.begin(); it != lib_dcmotors.end(); it++)
+            {
+                if ((*it) == (void *)&dcmotors[i])
+                {
+                    lib_dcmotors.erase(it);
+                    break;
+                }
+            }
             if (dcmotors[i].initd)
+            {
                 dcmotors[i].fullOff();
+            }
+        }
         for (int i = 0; i < 2; i++)
+        {
+            for (std::vector<void *>::iterator it = lib_steppers.begin(); it != lib_steppers.end(); it++)
+            {
+                if ((*it) == (void *)&steppers[i])
+                {
+                    lib_steppers.erase(it);
+                    break;
+                }
+            }
             if (steppers[i].initd)
+            {
                 steppers[i].release();
+            }
+        }
         i2cbus_close(bus);
     }
 
@@ -303,6 +346,8 @@ namespace Adafruit
             dcmotors[num].IN1pin = in1;
             dcmotors[num].IN2pin = in2;
         }
+        std::lock_guard<std::mutex>lock(handler_lock);
+        lib_dcmotors.push_back(&dcmotors[num]);
         return &dcmotors[num];
     }
 
@@ -379,6 +424,8 @@ namespace Adafruit
             steppers[port].BIN1pin = bin1;
             steppers[port].BIN2pin = bin2;
         }
+        std::lock_guard<std::mutex>lock(handler_lock);
+        lib_steppers.push_back((void *)&steppers[port]);
         return &steppers[port];
     }
 
@@ -450,7 +497,7 @@ namespace Adafruit
         microsteps = STEP16;
         initd = false;
         microstepcurve = microstepcurve16;
-        done = &adafruit_motorshield_internal_done;
+        // done = &adafruit_motorshield_internal_done;
         usperstep = 0;
         stop = false;
         moving = false;
@@ -797,13 +844,13 @@ namespace Adafruit
             data->steps--;
             return; // can not let this reach the unblock check
         }
-        else if (data->steps && !(*(_this->done)) && !(_this->stop)) // integral step/not microstepping, no Ctrl+C received, emergency stop not pressed
+        else if (data->steps && !(_this->stop)) // integral step/not microstepping, no Ctrl+C received, emergency stop not pressed
         {
             _this->moving = true;
             _this->onestep(data->dir, data->style);
             data->steps--;
         }
-        if (data->steps == 0 || (*(_this->done)) || _this->stop) // end reached/done = 1
+        if (data->steps == 0 || _this->stop) // end reached/done = 1
         {
             _this->moving = false;
             _this->cond.notify_all();

@@ -7,8 +7,8 @@
  * It supports DC motors & Stepper motors with microstepping as well
  * as stacking-support. It is *not* compatible with the V1 library.
  *
- * @version 2.0.0
- * @date 2022-03-24
+ * @version Refer to changelog.
+ * @date Refer to changelog.
  *
  * BSD license, all text here must be included in any redistribution.
  *
@@ -17,23 +17,20 @@
 #include "MotorShield.hpp"
 #include "meb_print.h"
 #include <stdio.h>
-#include <math.h>
-#include <time.h>
 #include <signal.h>
-#include <inttypes.h>
+#include <math.h>
 
 #include <algorithm>
 #include <thread>
 #include <vector>
+#include <list>
 
 #ifndef _DOXYGEN_
 #define LOW 0
 #define HIGH 1
 
-// volatile sig_atomic_t adafruit_motorshield_internal_done = 0;
-
-static std::vector<void *> lib_steppers;
-static std::vector<void *> lib_dcmotors;
+static std::list<void *> lib_steppers;
+static std::list<void *> lib_dcmotors;
 static std::mutex handler_lock;
 
 static void sigHandler(int sig)
@@ -52,15 +49,6 @@ static void sigHandler(int sig)
     }
 }
 #endif // _DOXYGEN_
-
-static char *fprefix_default = (char *) "motor";
-
-static inline uint64_t ts_now()
-{
-    struct timespec ts;
-    clock_gettime(CLOCK_REALTIME, &ts);
-    return (ts.tv_nsec + ts.tv_sec * 1000000000LLU);
-}
 
 namespace Adafruit
 {
@@ -204,7 +192,17 @@ namespace Adafruit
         _addr = addr;
         _bus = bus;
         initd = false;
+#ifndef ADAFRUIT_DISABLE_SIGINT
         signal(SIGINT, sigHandler);
+#endif
+#ifdef ADAFRUIT_ENABLE_SIGHUP
+        signal(SIGHUP, sigHandler);
+#endif
+#ifdef ADAFRUIT_ENABLE_SIGPIPE
+#ifdef SIGPIPE
+        signal(SIGPIPE, sigHandler);
+#endif
+#endif
     }
 
     MotorShield::~MotorShield()
@@ -213,7 +211,7 @@ namespace Adafruit
         for (int i = 0; i < 4; i++)
         {
             // remove motor from list of vectors for signal handler
-            for (std::vector<void *>::iterator it = lib_dcmotors.begin(); it != lib_dcmotors.end(); it++)
+            for (std::list<void *>::iterator it = lib_dcmotors.begin(); it != lib_dcmotors.end(); it++)
             {
                 if ((*it) == (void *)&dcmotors[i])
                 {
@@ -228,7 +226,7 @@ namespace Adafruit
         }
         for (int i = 0; i < 2; i++)
         {
-            for (std::vector<void *>::iterator it = lib_steppers.begin(); it != lib_steppers.end(); it++)
+            for (std::list<void *>::iterator it = lib_steppers.begin(); it != lib_steppers.end(); it++)
             {
                 if ((*it) == (void *)&steppers[i])
                 {
@@ -497,11 +495,9 @@ namespace Adafruit
         microsteps = STEP16;
         initd = false;
         microstepcurve = microstepcurve16;
-        // done = &adafruit_motorshield_internal_done;
         usperstep = 0;
         stop = false;
         moving = false;
-        savfp = NULL;
     }
 
     void StepperMotor::release(void)
@@ -562,23 +558,10 @@ namespace Adafruit
         return false;
     }
 
-    void _Catchable StepperMotor::step(uint16_t steps, MotorDir dir, MotorStyle style, bool blocking, bool saveData, const char *fprefix)
+    void _Catchable StepperMotor::step(uint16_t steps, MotorDir dir, MotorStyle style, bool blocking, StepperMotorCB_t callback_fn, void *callback_fn_data)
     {
         if (usperstep == 0)
             throw std::runtime_error("RPM has to be set before stepping the motor.");
-        if (saveData)
-        {
-            char fname[128];
-            char *afpref;
-            if (fprefix == NULL)
-                afpref = fprefix_default;
-            else
-                afpref = (char *) fprefix;
-            time_t t = time(NULL);
-            struct tm tm = *localtime(&t);
-            snprintf(fname, sizeof(fname), "./%s_%04d%02d%02d_%02d%02d%02d.txt", afpref, tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
-            savfp = fopen(fname, "w");
-        }
         if (blocking)
         {
             std::unique_lock<std::mutex> lock(cs);
@@ -595,7 +578,7 @@ namespace Adafruit
                 dbprintlf("steps = %d", steps);
             }
             stop = false;
-            StepperMotorTimerData data = {this, steps, dir, style, microsteps};
+            StepperMotorTimerData data = {this, steps, dir, style, microsteps, callback_fn, callback_fn_data};
             clkgen_t clk = create_clk(uspers * 1000LLU, stepHandlerFn, &data);
             if (cond.wait_for(lock, std::chrono::microseconds(steps * uspers)) == std::cv_status::timeout)
             {
@@ -609,7 +592,7 @@ namespace Adafruit
         }
         else // non-blocking, spawn thread
         {
-            std::thread stepThread(stepThreadFn, this, steps, dir, style);
+            std::thread stepThread(stepThreadFn, this, steps, dir, style, callback_fn, callback_fn_data);
             stepThread.detach();
         }
     }
@@ -834,8 +817,6 @@ namespace Adafruit
     {
         struct StepperMotorTimerData *data = (struct StepperMotorTimerData *)data_;
         StepperMotor *_this = data->_this;
-        if (_this->savfp != NULL)
-            fprintf(_this->savfp, "%" PRIu64 "\n", ts_now());
         // if at odd microstep we HAVE to step until we reach an integral step
         if ((data->steps % data->msteps) && (data->style == MotorStyle::MICROSTEP))
         {
@@ -854,15 +835,14 @@ namespace Adafruit
         {
             _this->moving = false;
             _this->cond.notify_all();
-            if (_this->savfp)
-            {
-                fflush(_this->savfp);
-                fclose(_this->savfp);
-                _this->savfp = NULL;
-            }
+        }
+        if (_this->moving && (data->callback_fn != nullptr))
+        {
+            data->callback_fn(_this, data->callback_user_data);
         }
     }
-    void StepperMotor::stepThreadFn(StepperMotor *mot, uint16_t steps, MotorDir dir, MotorStyle style)
+
+    void StepperMotor::stepThreadFn(StepperMotor *mot, uint16_t steps, MotorDir dir, MotorStyle style, StepperMotorCB_t callback_fn, void *callback_fn_data)
     {
         std::unique_lock<std::mutex> lock(mot->cs);
         uint64_t uspers = mot->usperstep;
@@ -877,7 +857,7 @@ namespace Adafruit
             steps *= mot->microsteps;
         }
         mot->stop = false;
-        StepperMotorTimerData data = {mot, steps, dir, style, mot->microsteps};
+        StepperMotorTimerData data = {mot, steps, dir, style, mot->microsteps, callback_fn, callback_fn_data};
         clkgen_t clk = create_clk(uspers * 1000LLU, stepHandlerFn, &data);
         if (mot->cond.wait_for(lock, std::chrono::microseconds(steps * uspers)) == std::cv_status::timeout)
         {

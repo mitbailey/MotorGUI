@@ -554,7 +554,7 @@ int main(int, char **)
                         try
                         {
                             mot->setSpeed(speed);
-                            mot->step(nsteps, dir, style, false, mot_save_data, motFilePref);
+                            mot->step(nsteps, dir, style, false);
                         }
                         catch (const std::exception &e)
                         {

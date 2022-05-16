@@ -11,7 +11,7 @@
 #include "backend/imgui_impl_glfw.h"
 #include "backend/imgui_impl_opengl2.h"
 #include "implot/implot.h"
-#include "SerEncoder.hpp"
+// #include "SerEncoder.hpp"
 #include "Adafruit/MotorShield.hpp"
 #include <stdio.h>
 #define eprintf(str, ...)                                                         \
@@ -138,7 +138,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 int main(int, char **)
 #endif
 {
-    SerEncoder *enc = nullptr;
+    // SerEncoder *enc = nullptr;
     ScrollingBuffer *buf = new ScrollingBuffer(2000);
     if (buf == nullptr)
         throw std::runtime_error("Hands in the air!");
@@ -217,66 +217,66 @@ int main(int, char **)
         ImGui::Begin("Control Panel", NULL, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar);
         ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 5.0f);
         {
-            ImGui::BeginChild("Position Acquisition", ImVec2(ImGui::GetWindowContentRegionWidth() * 0.36f, 220), ImGuiWindowFlags_None | ImGuiWindowFlags_ChildWindow);
-            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0, 0.6, 0.6, 1));
-            ImGui::Text("Encoder Control");
-            ImGui::PopStyleColor();
-            ImGui::Separator();
-            static char ser_name[50] = "/dev/ttyUSB0";
-            static char save_file[20] = "encoder";
-            static std::string errmsg = "";
-            static bool err = false;
-            ImGui::InputText("Serial Port", ser_name, IM_ARRAYSIZE(ser_name), ser_running ? ImGuiInputTextFlags_ReadOnly : ImGuiInputTextFlags_AutoSelectAll);
-            ImGui::InputText("Save File", save_file, IM_ARRAYSIZE(save_file), ser_running ? ImGuiInputTextFlags_ReadOnly : ImGuiInputTextFlags_AutoSelectAll);
-            ImGui::Checkbox("Save Data##1", &ser_save);
-            ImGui::SameLine(ImGui::GetWindowWidth() - 140);
-            ImGui::PushItemWidth(-FLT_MIN);
-            if (!encoder_acquisition_running)
-            {
-                ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0.65, 0, 1));
-                if (ImGui::Button("Start Acquisition"))
-                {
-                    try
-                    {
-                        enc = new SerEncoder(ser_name, ser_save);
-                    }
-                    catch (const std::exception &e)
-                    {
-                        errmsg = e.what();
-                        err = true;
-                    }
-                    if (enc != nullptr)
-                        encoder_acquisition_running = true;
-                }
-            }
-            else
-            {
-                ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.65, 0.0, 0.0, 1));
-                if (ImGui::Button("Stop Acquisition") || force_stop)
-                {
-                    force_stop = false;
-                    if (enc != nullptr)
-                        delete enc;
-                    enc = nullptr;
-                    ser_running = false;
-                    mot->release();
-                }
-            }
-            ImGui::PopStyleColor();
-            ImGui::PopItemWidth();
-            ImGui::Separator();
-            if (err)
-            {
-                ImGui::PushItemWidth(ImGui::GetWindowContentRegionWidth() - 50);
-                ImGui::TextWrapped("%s", errmsg.c_str());
-                ImGui::PopItemWidth();
-                ImGui::SameLine(ImGui::GetWindowWidth() - 50);
-                if (ImGui::Button("Clear##1"))
-                    err = false;
-            }
-            ImGui::EndChild();
+            // ImGui::BeginChild("Position Acquisition", ImVec2(ImGui::GetWindowContentRegionWidth() * 0.36f, 220), ImGuiWindowFlags_None | ImGuiWindowFlags_ChildWindow);
+            // ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0, 0.6, 0.6, 1));
+            // ImGui::Text("Encoder Control");
+            // ImGui::PopStyleColor();
+            // ImGui::Separator();
+            // static char ser_name[50] = "/dev/ttyUSB0";
+            // static char save_file[20] = "encoder";
+            // static std::string errmsg = "";
+            // static bool err = false;
+            // ImGui::InputText("Serial Port", ser_name, IM_ARRAYSIZE(ser_name), ser_running ? ImGuiInputTextFlags_ReadOnly : ImGuiInputTextFlags_AutoSelectAll);
+            // ImGui::InputText("Save File", save_file, IM_ARRAYSIZE(save_file), ser_running ? ImGuiInputTextFlags_ReadOnly : ImGuiInputTextFlags_AutoSelectAll);
+            // ImGui::Checkbox("Save Data##1", &ser_save);
+            // ImGui::SameLine(ImGui::GetWindowWidth() - 140);
+            // ImGui::PushItemWidth(-FLT_MIN);
+            // if (!encoder_acquisition_running)
+            // {
+            //     ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0.65, 0, 1));
+            //     if (ImGui::Button("Start Acquisition"))
+            //     {
+            //         try
+            //         {
+            //             enc = new SerEncoder(ser_name, ser_save);
+            //         }
+            //         catch (const std::exception &e)
+            //         {
+            //             errmsg = e.what();
+            //             err = true;
+            //         }
+            //         if (enc != nullptr)
+            //             encoder_acquisition_running = true;
+            //     }
+            // }
+            // else
+            // {
+            //     ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.65, 0.0, 0.0, 1));
+            //     if (ImGui::Button("Stop Acquisition") || force_stop)
+            //     {
+            //         force_stop = false;
+            //         if (enc != nullptr)
+            //             delete enc;
+            //         enc = nullptr;
+            //         ser_running = false;
+            //         mot->release();
+            //     }
+            // }
+            // ImGui::PopStyleColor();
+            // ImGui::PopItemWidth();
+            // ImGui::Separator();
+            // if (err)
+            // {
+            //     ImGui::PushItemWidth(ImGui::GetWindowContentRegionWidth() - 50);
+            //     ImGui::TextWrapped("%s", errmsg.c_str());
+            //     ImGui::PopItemWidth();
+            //     ImGui::SameLine(ImGui::GetWindowWidth() - 50);
+            //     if (ImGui::Button("Clear##1"))
+            //         err = false;
+            // }
+            // ImGui::EndChild();
         }
-        ImGui::SameLine();
+        // ImGui::SameLine();
         {
             ImGui::BeginChild("Motor Control", ImVec2(-1, 220), ImGuiWindowFlags_None | ImGuiWindowFlags_ChildWindow);
             ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0, 0.6, 0.6, 1));
@@ -591,32 +591,32 @@ int main(int, char **)
 
         ImGui::Separator();
 
-        if (enc == nullptr || !enc->hasData())
-        {
-            ImGui::Text("Data not available");
-        }
-        else
-        {
-            static float t = 0, hist = 100;
-            t += ImGui::GetIO().DeltaTime;
-            static uint64_t ts;
-            static SerEncoder_Flags flag;
-            static SerEncoder_Flags lastflag;
-            static int val;
-            enc->getData(ts, val, flag);
-            if (flag.val != 0)
-                lastflag = flag;
-            buf->AddPoint(t, (float)val);
-            ImGui::Text("Data: %d - 0x%02x\tLast error: 0x%02x", val, flag.val, lastflag.val);
-            ImPlot::SetNextPlotLimitsX(t - hist, t, ImGuiCond_Always);
-            ImPlot::SetNextPlotLimitsY(buf->Min(t - hist, t), buf->Max(t - hist, t), ImGuiCond_Always);
-            ImGui::SliderFloat("Points", &hist, 10, 1000, "%.1f");
-            if (ImPlot::BeginPlot("Encoder Data", "Time", "Position", ImVec2(-1, 300)))
-            {
-                ImPlot::PlotLine("##Line", &buf->Data[0].x, &buf->Data[0].y, buf->Data.size(), buf->Offset, 2 * sizeof(float));
-                ImPlot::EndPlot();
-            }
-        }
+        // if (enc == nullptr || !enc->hasData())
+        // {
+        //     ImGui::Text("Data not available");
+        // }
+        // else
+        // {
+        //     static float t = 0, hist = 100;
+        //     t += ImGui::GetIO().DeltaTime;
+        //     static uint64_t ts;
+        //     static SerEncoder_Flags flag;
+        //     static SerEncoder_Flags lastflag;
+        //     static int val;
+        //     enc->getData(ts, val, flag);
+        //     if (flag.val != 0)
+        //         lastflag = flag;
+        //     buf->AddPoint(t, (float)val);
+        //     ImGui::Text("Data: %d - 0x%02x\tLast error: 0x%02x", val, flag.val, lastflag.val);
+        //     ImPlot::SetNextPlotLimitsX(t - hist, t, ImGuiCond_Always);
+        //     ImPlot::SetNextPlotLimitsY(buf->Min(t - hist, t), buf->Max(t - hist, t), ImGuiCond_Always);
+        //     ImGui::SliderFloat("Points", &hist, 10, 1000, "%.1f");
+        //     if (ImPlot::BeginPlot("Encoder Data", "Time", "Position", ImVec2(-1, 300)))
+        //     {
+        //         ImPlot::PlotLine("##Line", &buf->Data[0].x, &buf->Data[0].y, buf->Data.size(), buf->Offset, 2 * sizeof(float));
+        //         ImPlot::EndPlot();
+        //     }
+        // }
         ImGui::End();
 
         // Rendering
@@ -648,8 +648,8 @@ int main(int, char **)
     glfwDestroyWindow(window);
     glfwTerminate();
 
-    if (enc != nullptr)
-        delete enc;
+    // if (enc != nullptr)
+    //     delete enc;
 
     return 0;
 }

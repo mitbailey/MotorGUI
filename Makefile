@@ -43,8 +43,7 @@ endif
 GUILIB=imgui/libimgui_glfw.a # ImGui library with glfw backend
 PLOTLIB=imgui/libimplot.a # ImPlot library (backend agnostic)
 
-CXXOBJS = SerEncoder.o \
-			Adafruit/MotorShield.o
+CXXOBJS = Adafruit/MotorShield.o
 
 COBJS = i2cbus/i2cbus.o
 

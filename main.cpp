@@ -129,6 +129,16 @@ struct ScrollingBuffer
     }
 };
 
+// typedef void (*StepperMotorCB_t)(StepperMotor *mot, void *user_data);
+void StepperMotorCB(Adafruit::StepperMotor *mot, void *user_data)
+{
+    char cmd[256] = {0};
+    snprintf(cmd, sizeof(cmd), "~/CamTrigger-1/CamTrig.out %s 101 10", (char *)user_data);
+    // Usage: <Set name> <Scan Wait time (ms)> <Exposure (ms)> [number of snaps] [Gain]
+    // Note: Exposure is taken every 0.5 seconds, or 1.1 * exposure time, whichever is greater.
+    system(cmd);
+}
+
 #if !defined(DEBUG_CONSOLE) && defined(IMGUI_ON_WINDOWS)
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
                       _In_opt_ HINSTANCE hPrevInstance,
@@ -146,7 +156,7 @@ int main(int, char **)
     glfwSetErrorCallback(glfw_error_callback);
     if (!glfwInit())
         return 1;
-    static int winx = 800, winy = 640;
+    static int winx = 800, winy = 256;
     GLFWwindow *window = glfwCreateWindow(winx, winy, "Stepper Motor Testing Utility", NULL, NULL);
     if (window == NULL)
         return 1;
@@ -186,8 +196,8 @@ int main(int, char **)
     // IM_ASSERT(font != NULL);
 
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
-    bool force_stop = false;
-    bool ser_running = false;
+    // bool force_stop = false;
+    // bool ser_running = false;
     bool mot_save_data = false;
     bool ser_save = false;
     static int framectr = 0;
@@ -195,7 +205,7 @@ int main(int, char **)
     static Adafruit::StepperMotor *mot = nullptr;
 
     // Main loop
-    bool encoder_acquisition_running = false;
+    // bool encoder_acquisition_running = false;
     while (!glfwWindowShouldClose(window))
     {
         framectr++;
@@ -216,66 +226,6 @@ int main(int, char **)
         ImGui::SetNextWindowSize(ImVec2(winx, winy), ImGuiCond_Always);
         ImGui::Begin("Control Panel", NULL, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar);
         ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 5.0f);
-        {
-            // ImGui::BeginChild("Position Acquisition", ImVec2(ImGui::GetWindowContentRegionWidth() * 0.36f, 220), ImGuiWindowFlags_None | ImGuiWindowFlags_ChildWindow);
-            // ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0, 0.6, 0.6, 1));
-            // ImGui::Text("Encoder Control");
-            // ImGui::PopStyleColor();
-            // ImGui::Separator();
-            // static char ser_name[50] = "/dev/ttyUSB0";
-            // static char save_file[20] = "encoder";
-            // static std::string errmsg = "";
-            // static bool err = false;
-            // ImGui::InputText("Serial Port", ser_name, IM_ARRAYSIZE(ser_name), ser_running ? ImGuiInputTextFlags_ReadOnly : ImGuiInputTextFlags_AutoSelectAll);
-            // ImGui::InputText("Save File", save_file, IM_ARRAYSIZE(save_file), ser_running ? ImGuiInputTextFlags_ReadOnly : ImGuiInputTextFlags_AutoSelectAll);
-            // ImGui::Checkbox("Save Data##1", &ser_save);
-            // ImGui::SameLine(ImGui::GetWindowWidth() - 140);
-            // ImGui::PushItemWidth(-FLT_MIN);
-            // if (!encoder_acquisition_running)
-            // {
-            //     ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0.65, 0, 1));
-            //     if (ImGui::Button("Start Acquisition"))
-            //     {
-            //         try
-            //         {
-            //             enc = new SerEncoder(ser_name, ser_save);
-            //         }
-            //         catch (const std::exception &e)
-            //         {
-            //             errmsg = e.what();
-            //             err = true;
-            //         }
-            //         if (enc != nullptr)
-            //             encoder_acquisition_running = true;
-            //     }
-            // }
-            // else
-            // {
-            //     ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.65, 0.0, 0.0, 1));
-            //     if (ImGui::Button("Stop Acquisition") || force_stop)
-            //     {
-            //         force_stop = false;
-            //         if (enc != nullptr)
-            //             delete enc;
-            //         enc = nullptr;
-            //         ser_running = false;
-            //         mot->release();
-            //     }
-            // }
-            // ImGui::PopStyleColor();
-            // ImGui::PopItemWidth();
-            // ImGui::Separator();
-            // if (err)
-            // {
-            //     ImGui::PushItemWidth(ImGui::GetWindowContentRegionWidth() - 50);
-            //     ImGui::TextWrapped("%s", errmsg.c_str());
-            //     ImGui::PopItemWidth();
-            //     ImGui::SameLine(ImGui::GetWindowWidth() - 50);
-            //     if (ImGui::Button("Clear##1"))
-            //         err = false;
-            // }
-            // ImGui::EndChild();
-        }
         // ImGui::SameLine();
         {
             ImGui::BeginChild("Motor Control", ImVec2(-1, 220), ImGuiWindowFlags_None | ImGuiWindowFlags_ChildWindow);
@@ -406,7 +356,7 @@ int main(int, char **)
                 // printf("framectr: %d, mot_started: %d, dFrames: %d, >100 frames: %d, !moving: %d, ser_save: %d, mot_save_data: %d\n", framectr, mot_started, framectr - mot_started, (framectr - mot_started) > 100, !moving, ser_save, mot_save_data);
                 if ((framectr - mot_started) > 100 && !moving && ser_save && mot_save_data && mot_started >= 0) // after 100 frames of pressing start
                 {
-                    force_stop = true;
+                    // force_stop = true;
                     mot_started = -1; // We have to reset mot_started to -1, an invalid value, to indicate that we are not currently looking to turn off the acquisition. This stops the program from preventing any further acquiring after the first.
                 }
                 if (ImGui::BeginTable("##split_mot_props", 4, ImGuiTableFlags_None))
@@ -554,7 +504,7 @@ int main(int, char **)
                         try
                         {
                             mot->setSpeed(speed);
-                            mot->step(nsteps, dir, style, false);
+                            mot->step(nsteps, dir, style, false, &StepperMotorCB, (void *) motFilePref);
                         }
                         catch (const std::exception &e)
                         {
